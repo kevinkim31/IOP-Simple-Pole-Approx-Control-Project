@@ -6,7 +6,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % set time step
-T = 0.006;
+T = 0.02;
 j = sqrt(-1);
 
 amplitude = 1.4000;
@@ -61,13 +61,23 @@ syms z
   % ----------------------
   % z^2 - 1.808 z + 0.8084
 
+% with 0.008ms sampling time
+  % 0.002597 z + 0.002363
+  % ----------------------
+  % z^2 - 1.753 z + 0.7531
+
+% with 0.006ms sampling time (TA plant)
+  % 0.001903 z + 0.001738
+  % ----------------------
+  % z^2 - 1.761 z + 0.7613
+
 %% Plant Poles and Coefficients in its Partial Fraction Decomposition
 
 % test plant (T = 0.02):
-% stableRealPlantPoles = [0.999606 0.492394];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [];
-% cs = [0.0502835 -0.0360335]; %coefficients
+stableRealPlantPoles = [0.999606 0.492394];
+stableComplexPlantPoles = [];
+unstablePlantPoles = [];
+cs = [0.0502835 -0.0360335]; %coefficients
 
 % test plant (T = 0.015):
 % stableRealPlantPoles = [0.5870314033];
@@ -81,17 +91,35 @@ syms z
 % unstablePlantPoles = [1.00167];
 % cs = [-0.0209288 0.0248978 ]; %coefficients
 
-%test plant (T = 0.01) (TA plant):
-stableRealPlantPoles = [0.63418];
-stableComplexPlantPoles = [];
-unstablePlantPoles = [1.00082];
-cs = [-0.0203427 0.0253357]; %coefficients
+% %test plant (T = 0.01) (TA plant):
+% stableRealPlantPoles = [0.63418];
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [1.00082];
+% cs = [-0.0203427 0.0253357]; %coefficients
 
 % %test plant (SF = 1.1; T = 0.0161)
 % stableRealPlantPoles = [0.564541];
 % stableComplexPlantPoles = [];
 % unstablePlantPoles = [1.00046];
 % cs = [-0.0307673 0.0404053]; %coefficients
+
+% %test plant (T = 0.006):
+% stableRealPlantPoles = [0.997894 0.810106];
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [];
+% cs = [0.015357 -0.013862]; %coefficients
+
+% %test plant (T = 0.006) (TA plant):
+% stableRealPlantPoles = [0.998738 0.762262];
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [];
+% cs = [0.0153867 -0.0134837]; %coefficients
+
+%test plant (T = 0.008):
+% stableRealPlantPoles = [0.999594 0.753406];
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [];
+% cs = [0.0201428 -0.0175458]; %coefficients
 
 stablePlantPoles = [stableRealPlantPoles stableComplexPlantPoles];
 qs = [stablePlantPoles unstablePlantPoles];
@@ -107,13 +135,26 @@ ncomplex = length(stableComplexPlantPoles);
 
 %% Poles Chosen in the Simple Pole Approximation of W[z]
 
-% realWPoles = [1/4];
-% complexWPoles = [1/2+1/2j 1/2-1/2j]; % order/index of p2, p3 flipped here?
-
-% for test plant:
 realWPoles = [];
-complexWPoles = [-0.229587+0.0979663*j -0.229587-0.0979663*j 0.104614+0.337152*j 0.104614-0.337152*j 0.427919+0.0617113*j 0.427919-0.0617113*j]; % only 6 closest?
+
+%default (6 poles)
+%complexWPoles = [-0.229587+0.0979663*j -0.229587-0.0979663*j 0.104614+0.337152*j 0.104614-0.337152*j 0.427919+0.0617113*j 0.427919-0.0617113*j]; % only 6 closest?
+
+%T = 0.02 (8 poles) 0.8 range
+%complexWPoles =[-0.367905997907408+0.156987823425114*j -0.367905997907408-0.156987823425114*j 0.167640262224593+0.540274691690505*j 0.167640262224593-0.540274691690505*j 0.685726405854943+0.098890324669614*j 0.685726405854943-0.098890324669614*j 0.553548232962454+0.577567618365283*j 0.553548232962454-0.577567618365283*j ]
+
+%T = 0.02 (6 poles) 0.3 range
+complexWPoles =[ -0.159307970196240-0.067977721585487*j -0.159307970196240+0.067977721585487*j 0.072590362891791-0.233945804012891*j 0.072590362891791+0.233945804012891*j 0.296928243758090-0.042820766676188*j 0.296928243758090+0.042820766676188*j]
+
+
+%T = 0.008 (6 poles) 0.9 range
+%complexWPoles = [-0.213734+0.0912017*j -0.213734-0.0912017*j 0.0973902+0.313871*j 0.0973902-0.313871*j 0.398371+0.0574501*j 0.398371-0.0574501*j]
+
+
+%from gen poles function
 %complexWPoles = [gen_poles];
+
+
 ps = [realWPoles complexWPoles];
 
 ps
@@ -178,7 +219,7 @@ b
 %% Determination of step response matrices
 
 % time horizon
-K = 50;
+K = 200;
 % K=5; % initial K
 
 amplitude = 1.4;
