@@ -6,22 +6,24 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % set time step
-T = 0.02;
+T = 0.006;
 j = sqrt(-1);
 
 amplitude = 1.4000;
 offset = -0.7;
 
 s = tf('s');
-P = 2.51124/(s*(0.02821*s+1));
+P = 2.51124/(s*(0.02821*s+1)); % own values
+%P = 2.542/(s*(0.022*s+1)); % TA values
 
 
-% --- Pick Ts from rule of thumb: ws > (5..10)w_bw ---
+%--- Pick Ts from rule of thumb: ws > (5..10)w_bw ---
 % poles = pole(P);                  % continuous-time poles (rad/s)
 % w_bw  = max(abs(real(poles)));    % bandwidth proxy from fastest decay
 % fac   = 10;                       % choose 5..10
 % ws    = fac * w_bw;               % sampling ang. freq (rad/s)
-% T     = 2*pi/ws;                  % sampling period (s)
+% SF    = 3.5;
+% T     = 2*pi/ws/SF;                  % sampling period (s)
 
 
 
@@ -44,13 +46,28 @@ syms z
   % ----------------------
   % z^2 - 1.702 z + 0.7015
 
+% with 0.01ms sampling time (TA plant)
+  % 0.004993 z + 0.004292
+  % ----------------------
+  % z^2 - 1.635 z + 0.6347
+
+% with SF = 1.1 (0.0161ms sampling time)
+  % 0.009638 z + 0.007971
+  % ----------------------
+  % z^2 - 1.565 z + 0.5648
+
+% with 0.006ms sampling time
+  % 0.001495 z + 0.001392
+  % ----------------------
+  % z^2 - 1.808 z + 0.8084
+
 %% Plant Poles and Coefficients in its Partial Fraction Decomposition
 
 % test plant (T = 0.02):
-stableRealPlantPoles = [0.999606 0.492394];
-stableComplexPlantPoles = [];
-unstablePlantPoles = [];
-cs = [0.0502835 -0.0360335]; %coefficients
+% stableRealPlantPoles = [0.999606 0.492394];
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [];
+% cs = [0.0502835 -0.0360335]; %coefficients
 
 % test plant (T = 0.015):
 % stableRealPlantPoles = [0.5870314033];
@@ -58,11 +75,23 @@ cs = [0.0502835 -0.0360335]; %coefficients
 % unstablePlantPoles = [1.0009685967];
 % cs = [-0.0290966278 0.0375496278]; %coefficients
 
-% test plant (T = 0.01):
+%test plant (T = 0.01):
 % stableRealPlantPoles = [0.700331];
 % stableComplexPlantPoles = [];
 % unstablePlantPoles = [1.00167];
 % cs = [-0.0209288 0.0248978 ]; %coefficients
+
+%test plant (T = 0.01) (TA plant):
+stableRealPlantPoles = [0.63418];
+stableComplexPlantPoles = [];
+unstablePlantPoles = [1.00082];
+cs = [-0.0203427 0.0253357]; %coefficients
+
+% %test plant (SF = 1.1; T = 0.0161)
+% stableRealPlantPoles = [0.564541];
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [1.00046];
+% cs = [-0.0307673 0.0404053]; %coefficients
 
 stablePlantPoles = [stableRealPlantPoles stableComplexPlantPoles];
 qs = [stablePlantPoles unstablePlantPoles];
@@ -84,7 +113,6 @@ ncomplex = length(stableComplexPlantPoles);
 % for test plant:
 realWPoles = [];
 complexWPoles = [-0.229587+0.0979663*j -0.229587-0.0979663*j 0.104614+0.337152*j 0.104614-0.337152*j 0.427919+0.0617113*j 0.427919-0.0617113*j]; % only 6 closest?
-%ps = [realWPoles complexWPoles]; 
 %complexWPoles = [gen_poles];
 ps = [realWPoles complexWPoles];
 
@@ -257,7 +285,7 @@ Constraints = [Constraints,
 Constraints = [Constraints,
                max(step_ry*[x;xhat]) <= (amplitude+0.05)*(-steadyState*[x;xhat])];
 
-jhat = 0.25/T;
+jhat = 0.2/T;
 % settling time constraint
 Constraints = [Constraints,
                max(step_ry(jhat:end, :)*[x;xhat]) <= amplitude*1.02*(-steadyState*[x;xhat]),
