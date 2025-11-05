@@ -1,0 +1,138 @@
+#include <Arduino.h>
+#include "geeWhiz.h"
+
+int MOT_PIN = A0;   // motor angle sensor
+int BAL_PIN = A1;   // ball position sensor
+
+// ================== Global Variables ======
+volatile int motorADC = 0;     // gear angle reading from A/D
+volatile int pos_counts = 0;       // ball position reading from A/D (not used for lab 1)
+volatile bool new_data_available = false;  // flag to indicate new sensor data
+
+// (c) Angle calibration
+const double m = -0.01427996661; // rad/ADC
+const double offset = 435.0; // zero at ADC=435
+const double SAT_LIMIT = 0.7;
+
+// ------- Controller Coefficients (EDIT THESE) -------
+// D(z) = N(z)/D(z)
+// N(z) = a0 + a1 z^-1 + a2 z^-2 + a3 z^-3 + a4 z^-4
+// D(z) = b0 + b1 z^-1 + b2 z^-2 + b3 z^-3 + b4 z^-4 + b5 z^-5
+double num[] = {3.320300000000000, -0.327978060921322, 0.874376865042969, 0.812670528101658, 0.741628371891472, -0.743415965647242};          // {a0..a4}
+double den[] = {1.000000000000000, -0.097575071582660,  0.217238776883407,  0.143088093847746,  0.087300594719428 , 0.056087651795705,  0.017702633142652};   // {b0..b5}
+
+double num[] = {3.320300000000000, -0.327978060921322, 0.874376865042969, 0.812670528101658, 0.741628371891472, -0.743415965647242};          // {a0..a4}
+double den[] =
+
+// ===== History buffers =====
+// uHist[0]=u[k-1], ..., uHist[4]=u[k-5]
+// eHist[0]=e[k-1], ..., eHist[3]=e[k-4]
+double eHist[5] = {0,0,0,0,0};
+double uHist[6] = {0,0,0,0,0,0};
+
+
+
+// (d) Stiction
+const double Vstick_CW = 0.147; // measured CW stiction (V)
+const double Vstick_CCW = 0.148; // measured CCW stiction (V)
+
+// with ball beam:
+const double V_zero = -0.42; // measured V that makes beam + ball stay in place at 0 deg
+// const double Vstick_CW = V_zero + 0.3; // measured CW stiction (V)
+// const double Vstick_CCW = V_zero - 0.115; // measured CCW stiction, start position on the right (V)
+// const double Vstick_CCW = V_zero - 0.1; // measured CCW stiction, start position on the right (V)
+// 0.1m from left end
+// const double Vstick_CW = V_zero + 0.35; // measured CW stiction (V)
+// const double Vstick_CCW = V_zero - 0.115; // measured CCW stiction, start position on the right (V)
+// const double Vstick_CCW = V_zero - 0.041;
+
+
+double theta_ref = 0.0;
+
+
+// (e) P-control step test
+const double Kp = 25.0; // Proportional constant
+const double STEP_AMP = 40.0*3.14/180.0; // step input in radians
+unsigned long t0;
+
+void setup() {
+  pinMode(A5, OUTPUT);
+  Serial.begin(115200);
+  delay(300);
+
+  geeWhizBegin();
+  set_control_interval_ms(20);
+
+  t0 = millis();
+  Serial.println("t_s,theta_ref,theta,u");
+}
+
+void loop() {
+  // Only execute control when new sensor data is available
+  if (new_data_available) {
+    new_data_available = false;  // reset flag
+    
+    // Read sensors
+    double theta = m * (motorADC - offset); // scaled motor angle reading [radians]
+
+
+    // Reference: 0 rad until 3.0 s, then step to STEP_AMP
+    unsigned long t_ms = millis() - t0;
+    // (f) Saturator: update theta ref if within range (+/- 0.7 rad)
+    if (t_ms >= 3000) {
+      if (STEP_AMP < (-SAT_LIMIT)) {
+        theta_ref = -SAT_LIMIT;
+      }
+      else if (STEP_AMP > (SAT_LIMIT)) {
+        theta_ref = SAT_LIMIT;
+      }
+      else {
+        theta_ref = STEP_AMP;
+      }
+    }
+
+   // P controller
+    double e = theta_ref - theta;
+    double u =
+        ( -den[1]*uHist[0] - den[2]*uHist[1] - den[3]*uHist[2]
+          - den[4]*uHist[3] - den[5]*uHist[4] - den[6]*uHist[5]
+          + num[0]*e + num[1]*eHist[0] + num[2]*eHist[1]
+          + num[3]*eHist[2] + num[4]*eHist[3] + num[5]*eHist[4] ) / den[0];
+
+    if (u > 0.0) u += Vstick_CW;
+    else if (u < 0.0) u -= Vstick_CCW;
+    setMotorVoltage(u*-1.0);
+
+    // ====== Update histories AFTER computing u ======
+    // shift u history
+    for (int i = 5; i > 0; --i) uHist[i] = uHist[i-1];
+    uHist[0] = u;
+
+    // shift e history
+    for (int i = 4; i > 0; --i) eHist[i] = eHist[i-1];
+    eHist[0] = e;
+
+    // Logging
+    static uint8_t decim = 0;
+    // if (++decim >= 10) {   // print every 10th sample, with set_control_interval_ms(2) in setup, sampling time is 20ms
+      decim = 0;
+      Serial.print(t_ms / 1000.0, 4);  Serial.print(",");
+      Serial.print(theta_ref, 6);       Serial.print(",");
+      Serial.print(theta, 6);           Serial.print(",");
+      Serial.println(u, 4);
+    // }
+  }
+}
+
+void interval_control_code(void) {
+  // Read sensors
+  int motor = analogRead(MOT_PIN);
+  int ball  = analogRead(BAL_PIN); // not used for lab 1
+
+  motorADC = motor;
+  pos_counts = ball; // not used for lab 1
+  new_data_available = true;  // signal that new data is ready
+
+  // square wave on A5 to check ISR rate on scope
+  digitalWrite(A5, !digitalRead(A5));
+}
