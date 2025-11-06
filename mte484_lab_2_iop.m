@@ -7,7 +7,7 @@
 
 % set time step
 T = 0.02;
-j = sqrt(-1);
+% j = sqrt(-1);
 
 amplitude = 1.4000;
 offset = -0.7;
@@ -17,13 +17,12 @@ P = 2.51124/(s*(0.02821*s+1)); % own values
 %P = 2.542/(s*(0.022*s+1)); % TA values
 
 
-%--- Pick Ts from rule of thumb: ws > (5..10)w_bw ---
+% %--- Pick Ts from rule of thumb: ws > (5..10)w_bw ---
 % poles = pole(P);                  % continuous-time poles (rad/s)
 % w_bw  = max(abs(real(poles)));    % bandwidth proxy from fastest decay
 % fac   = 10;                       % choose 5..10
 % ws    = fac * w_bw;               % sampling ang. freq (rad/s)
-% SF    = 3.5;
-% T     = 2*pi/ws/SF;                  % sampling period (s)
+% T     = 2*pi/ws;                  % sampling period (s)
 
 
 
@@ -51,10 +50,6 @@ syms z
   % ----------------------
   % z^2 - 1.635 z + 0.6347
 
-% with SF = 1.1 (0.0161ms sampling time)
-  % 0.009638 z + 0.007971
-  % ----------------------
-  % z^2 - 1.565 z + 0.5648
 
 % with 0.006ms sampling time
   % 0.001495 z + 0.001392
@@ -70,6 +65,17 @@ syms z
   % 0.001903 z + 0.001738
   % ----------------------
   % z^2 - 1.761 z + 0.7613
+
+% with 0.008ms sampling time (TA plant)
+  % 0.003287 z + 0.002912
+  % ----------------------
+  % z^2 - 1.695 z + 0.6951
+
+% with SF = 10
+
+  % 0.009049 z + 0.007343
+  % ----------------------
+  % z^2 - 1.533 z + 0.5335
 
 %% Plant Poles and Coefficients in its Partial Fraction Decomposition
 
@@ -91,17 +97,17 @@ cs = [0.0502835 -0.0360335]; %coefficients
 % unstablePlantPoles = [1.00167];
 % cs = [-0.0209288 0.0248978 ]; %coefficients
 
-% %test plant (T = 0.01) (TA plant):
+%test plant (T = 0.01) (TA plant):
 % stableRealPlantPoles = [0.63418];
 % stableComplexPlantPoles = [];
 % unstablePlantPoles = [1.00082];
 % cs = [-0.0203427 0.0253357]; %coefficients
 
-% %test plant (SF = 1.1; T = 0.0161)
-% stableRealPlantPoles = [0.564541];
+%test plant (SF = 10) (TA plant)
+% stableRealPlantPoles = [0.998927 0.534073];
 % stableComplexPlantPoles = [];
-% unstablePlantPoles = [1.00046];
-% cs = [-0.0307673 0.0404053]; %coefficients
+% unstablePlantPoles = [];
+% cs = [0.0352418  -0.0261928]; %coefficients
 
 % %test plant (T = 0.006):
 % stableRealPlantPoles = [0.997894 0.810106];
@@ -109,7 +115,7 @@ cs = [0.0502835 -0.0360335]; %coefficients
 % unstablePlantPoles = [];
 % cs = [0.015357 -0.013862]; %coefficients
 
-% %test plant (T = 0.006) (TA plant):
+%test plant (T = 0.006) (TA plant):
 % stableRealPlantPoles = [0.998738 0.762262];
 % stableComplexPlantPoles = [];
 % unstablePlantPoles = [];
@@ -120,6 +126,13 @@ cs = [0.0502835 -0.0360335]; %coefficients
 % stableComplexPlantPoles = [];
 % unstablePlantPoles = [];
 % cs = [0.0201428 -0.0175458]; %coefficients
+
+% %test plant (T = 0.008) (TA plant):
+% stableRealPlantPoles= [0.999672 0.695328];
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [];
+% cs = [0.0203649 -0.0170779]; %coefficients
+
 
 stablePlantPoles = [stableRealPlantPoles stableComplexPlantPoles];
 qs = [stablePlantPoles unstablePlantPoles];
@@ -448,9 +461,9 @@ fprintf('Number of poles in D[z]: %d\n', numel(pD));
 
 
 
-[num_d, den_d] = tfdata(D_simplified,'v');  
-% num_d = num_d/den_d(1);
-% den_d = den_d/den_d(1);
+[num_ds, den_ds] = tfdata(D_simplified,'v');  
+
+
 
 % find the poles and zeros of W and X
 zpk(W);
