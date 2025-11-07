@@ -1,5 +1,10 @@
 #include <Arduino.h>
+#include <math.h>
 #include "geeWhiz.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 int MOT_PIN = A0;   // motor angle sensor
 int BAL_PIN = A1;   // ball position sensor
@@ -16,19 +21,21 @@ const double SAT_LIMIT = 0.7;
 
 // ------- Controller Coefficients (EDIT THESE) -------
 // D(z) = N(z)/D(z)
-// N(z) = a0 + a1 z^-1 + a2 z^-2 + a3 z^-3 + a4 z^-4
-// D(z) = b0 + b1 z^-1 + b2 z^-2 + b3 z^-3 + b4 z^-4 + b5 z^-5
-double num[] = {3.320300000000000, -0.327978060921322, 0.874376865042969, 0.812670528101658, 0.741628371891472, -0.743415965647242};          // {a0..a4}
-double den[] = {1.000000000000000, -0.097575071582660,  0.217238776883407,  0.143088093847746,  0.087300594719428 , 0.056087651795705,  0.017702633142652};   // {b0..b5}
+// N(z) = a0 + a1 z^-1 + a2 z^-2 + a3 z^-3 + a4 z^-4 + a5 z^-5 + a6 z^-6 + a7 z^-7
+// D(z) = b0 + b1 z^-1 + b2 z^-2 + b3 z^-3 + b4 z^-4 + b5 z^-5 + b6 z^-6 + b7 z^-7 + b8 z^-8
+double num[] = {3.320300000000000, -0.327978060921322, 0.874376865042969, 0.812670528101658, 0.741628371891472, -0.743415965647242, 0.0, 0.0};          // {a0..a7}
+double den[] = {1.000000000000000, -0.097575071582660,  0.217238776883407,  0.143088093847746,  0.087300594719428 , 0.056087651795705,  0.017702633142652, 0.0, 0.0};   // {b0..b8}
 
-double num[] = {3.320300000000000, -0.327978060921322, 0.874376865042969, 0.812670528101658, 0.741628371891472, -0.743415965647242};          // {a0..a4}
-double den[] =
+const int NUM_LEN = sizeof(num) / sizeof(num[0]);
+const int DEN_LEN = sizeof(den) / sizeof(den[0]);
+const int E_HIST_LEN = (NUM_LEN > 0) ? NUM_LEN - 1 : 0;
+const int U_HIST_LEN = (DEN_LEN > 0) ? DEN_LEN - 1 : 0;
 
 // ===== History buffers =====
-// uHist[0]=u[k-1], ..., uHist[4]=u[k-5]
-// eHist[0]=e[k-1], ..., eHist[3]=e[k-4]
-double eHist[5] = {0,0,0,0,0};
-double uHist[6] = {0,0,0,0,0,0};
+// uHist[0]=u[k-1], ..., uHist[7]=u[k-8] (8 poles)
+// eHist[0]=e[k-1], ..., eHist[7]=e[k-8] (8 poles)
+double eHist[E_HIST_LEN] = {0};
+double uHist[U_HIST_LEN] = {0};
 
 
 
@@ -52,7 +59,7 @@ double theta_ref = 0.0;
 
 // (e) P-control step test
 const double Kp = 25.0; // Proportional constant
-const double STEP_AMP = 40.0*3.14/180.0; // step input in radians
+const double STEP_AMP = 40.0 * M_PI / 180.0; // step input in radians
 unsigned long t0;
 
 void setup() {
@@ -73,7 +80,7 @@ void loop() {
     new_data_available = false;  // reset flag
     
     // Read sensors
-    double theta = m * (motorADC - offset); // scaled motor angle reading [radians]
+    double theta = m * ((double)motorADC - offset); // scaled motor angle reading [radians]
 
 
     // Reference: 0 rad until 3.0 s, then step to STEP_AMP
@@ -93,24 +100,40 @@ void loop() {
 
    // P controller
     double e = theta_ref - theta;
-    double u =
-        ( -den[1]*uHist[0] - den[2]*uHist[1] - den[3]*uHist[2]
-          - den[4]*uHist[3] - den[5]*uHist[4] - den[6]*uHist[5]
-          + num[0]*e + num[1]*eHist[0] + num[2]*eHist[1]
-          + num[3]*eHist[2] + num[4]*eHist[3] + num[5]*eHist[4] ) / den[0];
+    double u = num[0] * e;
 
-    if (u > 0.0) u += Vstick_CW;
-    else if (u < 0.0) u -= Vstick_CCW;
-    setMotorVoltage(u*-1.0);
+    for (int i = 0; i < E_HIST_LEN; ++i) {
+      u += num[i + 1] * eHist[i];
+    }
 
+    for (int i = 0; i < U_HIST_LEN; ++i) {
+      u -= den[i + 1] * uHist[i];
+    }
+
+    u /= den[0];
+
+    u_stiction = u;
+
+    if (u_stiction > 0.0) u_stiction += Vstick_CW;
+    else if (u_stiction < 0.0) u_stiction -= Vstick_CCW;
+    setMotorVoltage(u_stiction*-1.0);
+    
     // ====== Update histories AFTER computing u ======
     // shift u history
-    for (int i = 5; i > 0; --i) uHist[i] = uHist[i-1];
-    uHist[0] = u;
+    for (int i = U_HIST_LEN - 1; i > 0; --i) {
+      uHist[i] = uHist[i-1];
+    }
+    if (U_HIST_LEN > 0) {
+      uHist[0] = u;
+    }
 
     // shift e history
-    for (int i = 4; i > 0; --i) eHist[i] = eHist[i-1];
-    eHist[0] = e;
+    for (int i = E_HIST_LEN - 1; i > 0; --i) {
+      eHist[i] = eHist[i-1];
+    }
+    if (E_HIST_LEN > 0) {
+      eHist[0] = e;
+    }
 
     // Logging
     static uint8_t decim = 0;
