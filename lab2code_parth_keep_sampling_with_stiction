@@ -14,7 +14,7 @@ volatile int motorADC = 0;     // gear angle reading from A/D
 volatile int pos_counts = 0;       // ball position reading from A/D (not used for lab 1)
 volatile bool new_data_available = false;  // flag to indicate new sensor data
 
-// (c) Angle calibration
+// Angle calibration
 const double m = -0.01427996661; // rad/ADC
 const double offset = 435.0; // zero at ADC=435
 const double SAT_LIMIT = 0.7;
@@ -23,8 +23,8 @@ const double SAT_LIMIT = 0.7;
 // D(z) = N(z)/D(z)
 // N(z) = a0 + a1 z^-1 + a2 z^-2 + a3 z^-3 + a4 z^-4 + a5 z^-5 + a6 z^-6 + a7 z^-7
 // D(z) = b0 + b1 z^-1 + b2 z^-2 + b3 z^-3 + b4 z^-4 + b5 z^-5 + b6 z^-6 + b7 z^-7 + b8 z^-8
-double num[] = {3.320300000000000, -0.327978060921322, 0.874376865042969, 0.812670528101658, 0.741628371891472, -0.743415965647242, 0.0, 0.0};          // {a0..a7}
-double den[] = {1.000000000000000, -0.097575071582660,  0.217238776883407,  0.143088093847746,  0.087300594719428 , 0.056087651795705,  0.017702633142652, 0.0, 0.0};   // {b0..b8}
+double num[] = {0.0000000000 ,    3.35691708192918  ,  -7.04663430176872 ,   6.97634835237982 ,   -4.15645936949011  ,  4.58060382803318  ,  -6.14027996419204,    4.92529313916834  ,  -1.58492749103628};  // MATALB: num_ds [TAKE OUT FIRST ELEMENT FROM MATLAB (=0)]
+double den[] = {1.00000000000 ,   -2.13319086758922   , 2.14467988019518   , -0.864588215839821   , -0.110317399308545  ,  0.284694217858913,    -0.0934966917459418  ,  -0.0522913361772104  ,  0.0499173735455755}; // MATLAB: den_ds 
 
 const int NUM_LEN = sizeof(num) / sizeof(num[0]);
 const int DEN_LEN = sizeof(den) / sizeof(den[0]);
@@ -32,34 +32,34 @@ const int E_HIST_LEN = (NUM_LEN > 0) ? NUM_LEN - 1 : 0;
 const int U_HIST_LEN = (DEN_LEN > 0) ? DEN_LEN - 1 : 0;
 
 // ===== History buffers =====
-// uHist[0]=u[k-1], ..., uHist[7]=u[k-8] (8 poles)
-// eHist[0]=e[k-1], ..., eHist[7]=e[k-8] (8 poles)
 double eHist[E_HIST_LEN] = {0};
 double uHist[U_HIST_LEN] = {0};
 
 
 
-// (d) Stiction
-const double Vstick_CW = 0.147; // measured CW stiction (V)
-const double Vstick_CCW = 0.148; // measured CCW stiction (V)
+// (d) Stiction without beam + ball
+// const double Vstick_CW = 0.147; // measured CW stiction (V)
+// const double Vstick_CCW = 0.148; // measured CCW stiction (V)
 
-// with ball beam:
-const double V_zero = -0.42; // measured V that makes beam + ball stay in place at 0 deg
-// const double Vstick_CW = V_zero + 0.3; // measured CW stiction (V)
-// const double Vstick_CCW = V_zero - 0.115; // measured CCW stiction, start position on the right (V)
-// const double Vstick_CCW = V_zero - 0.1; // measured CCW stiction, start position on the right (V)
-// 0.1m from left end
-// const double Vstick_CW = V_zero + 0.35; // measured CW stiction (V)
-// const double Vstick_CCW = V_zero - 0.115; // measured CCW stiction, start position on the right (V)
-// const double Vstick_CCW = V_zero - 0.041;
+// Stiction with beam + ball
+const double V_zero = 0.58; // measured V that makes beam + ball stay in place at 0 deg, should stay positive here--> stuttering with relatively no steady state error
+const double Vstick_CW = V_zero - 0.1; // measured CW stiction (V), then CW offset should be negative and small, V_zero - stick_CW
+const double Vstick_CCW = V_zero + 0.1; // measured CCW stiction (V), then CCW offset should be positive and larger, V_zero + stick_CCW
+
+//const double V_zero = 0.42;  // these values were calculted via physical measurements; no stuttering but cause steady state error with beam + ball
+// const double Vstick_CW = V_zero - 0.35;
+// const double Vstick_CCW = V_zero + 0.115
 
 
+// DEFINE OUTPUT Y (STEP_AMP) AND INPUT R (theta_ref) 
+// ***************************************************
+// const double STEP_AMP = 40.0 * M_PI / 180.0; // step input in radians
+const double STEP_AMP = 0.7; 
 double theta_ref = 0.0;
+// ***************************************************
 
 
-// (e) P-control step test
-const double Kp = 25.0; // Proportional constant
-const double STEP_AMP = 40.0 * M_PI / 180.0; // step input in radians
+
 unsigned long t0;
 
 void setup() {
@@ -68,7 +68,7 @@ void setup() {
   delay(300);
 
   geeWhizBegin();
-  set_control_interval_ms(20);
+  set_control_interval_ms(9);
 
   t0 = millis();
   Serial.println("t_s,theta_ref,theta,u");
@@ -98,8 +98,19 @@ void loop() {
       }
     }
 
-   // P controller
     double e = theta_ref - theta;
+
+    // const double E_DB_ENTER = 0.030;   // enter deadband at |e| ≤ 0.01 rad
+    // const double E_DB_EXIT  = 0.020;   // leave deadband at |e| ≥ 0.02 rad
+    // static bool in_deadband = false;
+
+    //     // ---- deadband with hysteresis ----
+    // if (in_deadband) {
+    //   if (fabs(e) >= E_DB_EXIT) in_deadband = false;
+    // } else {
+    //   if (fabs(e) <= E_DB_ENTER) in_deadband = true;
+    // }
+
     double u = num[0] * e;
 
     for (int i = 0; i < E_HIST_LEN; ++i) {
@@ -112,11 +123,32 @@ void loop() {
 
     u /= den[0];
 
-    u_stiction = u;
+    //     // ---- proportional part (your existing gain) ----
+    // double u_corr = num[0] * e;
+
+    // ---- constant gravity/stiction feed-forward ----
+    // double u_corr = (in_deadband ? 0.0 : u); 
+
+    double u_stiction = u;
+
+    // if (u_stiction > 0.0 && !in_deadband) u_stiction += Vstick_CW;
+    // else if (u_stiction < 0.0 && !in_deadband) u_stiction -= Vstick_CCW;
+    // else u_stiction += V_zero;
+    // setMotorVoltage(u_stiction*-1.0); // so actually negative to go CCW, before this CCW vals are all positive
+
+    // if (!in_deadband) {
+    //   if (u > 0.0) u += Vstick_CW;
+    //   else if (u < 0.0) u += Vstick_CCW;
+    // }
+    // double u_stiction = u;
 
     if (u_stiction > 0.0) u_stiction += Vstick_CW;
     else if (u_stiction < 0.0) u_stiction -= Vstick_CCW;
     setMotorVoltage(u_stiction*-1.0);
+
+    // if (u > 0.0) u += Vstick_CW;
+    // else if (u < 0.0) u += Vstick_CCW;
+    // setMotorVoltage(u*-1.0); 
     
     // ====== Update histories AFTER computing u ======
     // shift u history
@@ -142,7 +174,8 @@ void loop() {
       Serial.print(t_ms / 1000.0, 4);  Serial.print(",");
       Serial.print(theta_ref, 6);       Serial.print(",");
       Serial.print(theta, 6);           Serial.print(",");
-      Serial.println(u, 4);
+      Serial.print(u, 4); Serial.print(",");
+      Serial.println(motorADC, 6);          //adc
     // }
   }
 }
