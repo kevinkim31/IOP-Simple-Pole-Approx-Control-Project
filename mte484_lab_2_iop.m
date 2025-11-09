@@ -6,15 +6,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % set time step
-T = 0.02;
-% j = sqrt(-1);
+T = 0.009;
+j = sqrt(-1);
 
 amplitude = 1.4000;
 offset = -0.7;
 
 s = tf('s');
-P = 2.51124/(s*(0.02821*s+1)); % own values
-%P = 2.542/(s*(0.022*s+1)); % TA values
+%P = 2.51124/(s*(0.02821*s+1)); % own values
+P = 2.542/(s*(0.022*s+1)); % TA values
 
 
 % %--- Pick Ts from rule of thumb: ws > (5..10)w_bw ---
@@ -30,43 +30,43 @@ G_c2d = c2d(P, T);
 
 syms z
 
-% with 0.02 ms sampling time
+% with 0.02 s sampling time
   %  0.01425 z + 0.01126
   % ----------------------
   % z^2 - 1.492 z + 0.4922
 
-% with 0.015 ms sampling time
+% with 0.015 s sampling time
   % 0.008453 z + 0.007082
   % ----------------------
   % z^2 - 1.588 z + 0.5876
 
-% with 0.01ms sampling time
+% with 0.01s sampling time
   % 0.003969 z + 0.003527
   % ----------------------
   % z^2 - 1.702 z + 0.7015
 
-% with 0.01ms sampling time (TA plant)
+% with 0.01s sampling time (TA plant)
   % 0.004993 z + 0.004292
   % ----------------------
   % z^2 - 1.635 z + 0.6347
 
 
-% with 0.006ms sampling time
+% with 0.006s sampling time
   % 0.001495 z + 0.001392
   % ----------------------
   % z^2 - 1.808 z + 0.8084
 
-% with 0.008ms sampling time
+%with 0.008s sampling time
   % 0.002597 z + 0.002363
   % ----------------------
   % z^2 - 1.753 z + 0.7531
 
-% with 0.006ms sampling time (TA plant)
+% with 0.006s sampling time (TA plant)
   % 0.001903 z + 0.001738
   % ----------------------
   % z^2 - 1.761 z + 0.7613
 
-% with 0.008ms sampling time (TA plant)
+% with 0.008s sampling time (TA plant)
   % 0.003287 z + 0.002912
   % ----------------------
   % z^2 - 1.695 z + 0.6951
@@ -77,13 +77,18 @@ syms z
   % ----------------------
   % z^2 - 1.533 z + 0.5335
 
+% with 0.009s sampling time (TA Plant)
+  % 0.004102 z + 0.003579
+  % ----------------------
+  % z^2 - 1.664 z + 0.6643
+
 %% Plant Poles and Coefficients in its Partial Fraction Decomposition
 
 % test plant (T = 0.02):
-stableRealPlantPoles = [0.999606 0.492394];
-stableComplexPlantPoles = [];
-unstablePlantPoles = [];
-cs = [0.0502835 -0.0360335]; %coefficients
+% stableRealPlantPoles = [0.999606 0.492394];
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [];
+% cs = [0.0502835 -0.0360335]; %coefficients
 
 % test plant (T = 0.015):
 % stableRealPlantPoles = [0.5870314033];
@@ -133,6 +138,12 @@ cs = [0.0502835 -0.0360335]; %coefficients
 % unstablePlantPoles = [];
 % cs = [0.0203649 -0.0170779]; %coefficients
 
+%test plant (T = 0.009) (TA plant):
+stableRealPlantPoles = [0.999105 0.664895]; 
+stableComplexPlantPoles = [];
+unstablePlantPoles = [];
+cs = [0.0229716 -0.0188696]; %coefficients
+
 
 stablePlantPoles = [stableRealPlantPoles stableComplexPlantPoles];
 qs = [stablePlantPoles unstablePlantPoles];
@@ -157,7 +168,7 @@ realWPoles = [];
 %complexWPoles =[-0.367905997907408+0.156987823425114*j -0.367905997907408-0.156987823425114*j 0.167640262224593+0.540274691690505*j 0.167640262224593-0.540274691690505*j 0.685726405854943+0.098890324669614*j 0.685726405854943-0.098890324669614*j 0.553548232962454+0.577567618365283*j 0.553548232962454-0.577567618365283*j ]
 
 %T = 0.02 (6 poles) 0.3 range
-complexWPoles =[ -0.159307970196240-0.067977721585487*j -0.159307970196240+0.067977721585487*j 0.072590362891791-0.233945804012891*j 0.072590362891791+0.233945804012891*j 0.296928243758090-0.042820766676188*j 0.296928243758090+0.042820766676188*j]
+%complexWPoles =[ -0.159307970196240-0.067977721585487*j -0.159307970196240+0.067977721585487*j 0.072590362891791-0.233945804012891*j 0.072590362891791+0.233945804012891*j 0.296928243758090-0.042820766676188*j 0.296928243758090+0.042820766676188*j]
 
 
 %T = 0.008 (6 poles) 0.9 range
@@ -165,7 +176,7 @@ complexWPoles =[ -0.159307970196240-0.067977721585487*j -0.159307970196240+0.067
 
 
 %from gen poles function
-%complexWPoles = [gen_poles];
+complexWPoles = [gen_poles];
 
 
 ps = [realWPoles complexWPoles];
@@ -316,8 +327,8 @@ end
 
 %% Defining the objective function and constraints for the optimization
 
-%Objective = 0;
 Objective = 0;
+%Objective = -max(step_ry*[x;xhat]);
 
 fprintf('size(A)=%dx%d, size(w)=%dx%d, size(x)=%dx%d, size(xhat)=%dx%d, size(b)=%dx%d\n', ...
     size(A), size(w), size(x), size(xhat), size(b));
@@ -337,7 +348,7 @@ Constraints = [Constraints,
 
 % overshoot constraint
 Constraints = [Constraints,
-               max(step_ry*[x;xhat]) <= (amplitude+0.05)*(-steadyState*[x;xhat])];
+               max(step_ry*[x;xhat]) <= (amplitude+0.1)*(-steadyState*[x;xhat])];
 
 jhat = 0.2/T;
 % settling time constraint
@@ -442,13 +453,13 @@ fprintf('  Poles : %d\n', numel(pD0));
 
 %% Snap nearly identical poles/zeros (e.g. z=1 vs z=0.998)
 [zD_snap, pD_snap, kD_snap] = zpkdata(D, 'v');
-snap_tol = 0.002;  % adjust if needed
+snap_tol = 0.004;  % adjust if needed
 pD_snap(abs(pD_snap - 1) < snap_tol) = 1;
 zD_snap(abs(zD_snap - 1) < snap_tol) = 1;
 D_snap = zpk(zD_snap, pD_snap, kD_snap, D.Ts);
 
 %% Simplify D[z] by canceling pole-zero pairs and display result
-tol = 0.001;                  % numerical tolerance
+tol = 0.003;                  % numerical tolerance
 D_simplified = minreal(D_snap, tol);  % remove near-canceling poles/zeros
 disp('Final simplified D[z]:');
 zpk(D_simplified)
