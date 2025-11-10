@@ -32,7 +32,7 @@ const double ball_offset = -71.0/236.0; // zero at ADC=435
 // D(z) = N(z)/D(z)
 // N(z) = a0 + a1 z^-1 + a2 z^-2 + a3 z^-3 + a4 z^-4 + a5 z^-5 + a6 z^-6 + a7 z^-7
 // D(z) = b0 + b1 z^-1 + b2 z^-2 + b3 z^-3 + b4 z^-4 + b5 z^-5 + b6 z^-6 + b7 z^-7 + b8 z^-8
-double num[] = {0.0000000000 ,    3.35691708192918  ,  -7.04663430176872 ,   6.97634835237982 ,   -4.15645936949011  ,  4.58060382803318  ,  -6.14027996419204,    4.92529313916834  ,  -1.58492749103628};  // MATALB: num_ds [TAKE OUT FIRST ELEMENT FROM MATLAB (=0)]
+double num[] = {3.35691708192918  ,  -7.04663430176872 ,   6.97634835237982 ,   -4.15645936949011  ,  4.58060382803318  ,  -6.14027996419204,    4.92529313916834  ,  -1.58492749103628};  // MATALB: num_ds [TAKE OUT FIRST ELEMENT FROM MATLAB (=0)]
 double den[] = {1.00000000000 ,   -2.13319086758922   , 2.14467988019518   , -0.864588215839821   , -0.110317399308545  ,  0.284694217858913,    -0.0934966917459418  ,  -0.0522913361772104  ,  0.0499173735455755}; // MATLAB: den_ds 
 
 const int NUM_LEN = sizeof(num) / sizeof(num[0]);
@@ -106,31 +106,20 @@ void loop() {
       theta_ref = 0.1;
     }
 
-    // (f) Saturator: update theta ref if within range (+/- 0.7 rad)
-    // if (t_ms >= 3000) {
-    //   if (STEP_AMP < (-SAT_LIMIT)) {
-    //     theta_ref = -SAT_LIMIT;
-    //   }
-    //   else if (STEP_AMP > (SAT_LIMIT)) {
-    //     theta_ref = SAT_LIMIT;
-    //   }
-    //   else {
-    //     theta_ref = STEP_AMP;
-    //   }
-    // }
+    //(f) Saturator: update theta ref if within range (+/- 0.7 rad)
+    if (t_ms >= 3000) {
+      if (STEP_AMP < (-SAT_LIMIT)) {
+        theta_ref = -SAT_LIMIT;
+      }
+      else if (STEP_AMP > (SAT_LIMIT)) {
+        theta_ref = SAT_LIMIT;
+      }
+      else {
+        theta_ref = STEP_AMP;
+      }
+    }
 
     double e = theta_ref - theta;
-
-    // const double E_DB_ENTER = 0.030;   // enter deadband at |e| ≤ 0.01 rad
-    // const double E_DB_EXIT  = 0.020;   // leave deadband at |e| ≥ 0.02 rad
-    // static bool in_deadband = false;
-
-    //     // ---- deadband with hysteresis ----
-    // if (in_deadband) {
-    //   if (fabs(e) >= E_DB_EXIT) in_deadband = false;
-    // } else {
-    //   if (fabs(e) <= E_DB_ENTER) in_deadband = true;
-    // }
 
     double u = num[0] * e;
 
@@ -144,32 +133,12 @@ void loop() {
 
     u /= den[0];
 
-    //     // ---- proportional part (your existing gain) ----
-    // double u_corr = num[0] * e;
-
-    // ---- constant gravity/stiction feed-forward ----
-    // double u_corr = (in_deadband ? 0.0 : u); 
 
     double u_stiction = u;
-
-    // if (u_stiction > 0.0 && !in_deadband) u_stiction += Vstick_CW;
-    // else if (u_stiction < 0.0 && !in_deadband) u_stiction -= Vstick_CCW;
-    // else u_stiction += V_zero;
-    // setMotorVoltage(u_stiction*-1.0); // so actually negative to go CCW, before this CCW vals are all positive
-
-    // if (!in_deadband) {
-    //   if (u > 0.0) u += Vstick_CW;
-    //   else if (u < 0.0) u += Vstick_CCW;
-    // }
-    // double u_stiction = u;
 
     if (u_stiction > 0.0) u_stiction += Vstick_CW;
     else if (u_stiction < 0.0) u_stiction -= Vstick_CCW;
     setMotorVoltage(u_stiction*-1.0);
-
-    // if (u > 0.0) u += Vstick_CW;
-    // else if (u < 0.0) u += Vstick_CCW;
-    // setMotorVoltage(u*-1.0); 
     
     // ====== Update histories AFTER computing u ======
     // shift u history
