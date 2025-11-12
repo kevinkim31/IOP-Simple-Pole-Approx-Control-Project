@@ -388,6 +388,18 @@ X = tf(num,den,T);
 %zero(X)
 %pole(X)
 
+%% Calculate D[z]
+format long
+D = W / X;
+
+%Show simplified D[z]
+zpk(D)
+
+[num_d, den_d] = tfdata(D,'v');  
+
+
+
+
 %% Verify design in DT
 
 % % compute D by hand
