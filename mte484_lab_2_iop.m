@@ -1,212 +1,96 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% This template is for the IOP control design with SPA, and is incomplete.
-% You need to complete it by replacing every * with the correct code.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% set time step
-T = 0.1;
-j = sqrt(-1);
-
-amplitude = 1.4000;
-offset = -0.7;
+% set sampling time
+T = 0.4;
 
 s = tf('s');
-%P = 2.51124/(s*(0.02821*s+1)); % own values
-%P = 2.542/(s*(0.022*s+1)); % TA values
+
+amplitude = 0.1500000000;
+
 
 %LAB 3 PLANT
 P = -0.2588729/(s*s);
 
-% %--- Pick Ts from rule of thumb: ws > (5..10)w_bw ---
-% poles = pole(P);                  % continuous-time poles (rad/s)
-% w_bw  = max(abs(real(poles)));    % bandwidth proxy from fastest decay
-% fac   = 10;                       % choose 5..10
-% ws    = fac * w_bw;               % sampling ang. freq (rad/s)
-% T     = 2*pi/ws;                  % sampling period (s)
-
-
-
-G_c2d = c2d(P, T);
-
-syms z
-
-% with 0.02 s sampling time
-  %  0.01425 z + 0.01126
-  % ----------------------
-  % z^2 - 1.492 z + 0.4922
-
-% with 0.015 s sampling time
-  % 0.008453 z + 0.007082
-  % ----------------------
-  % z^2 - 1.588 z + 0.5876
-
-% with 0.01s sampling time
-  % 0.003969 z + 0.003527
-  % ----------------------
-  % z^2 - 1.702 z + 0.7015
-
-% with 0.01s sampling time (TA plant)
-  % 0.004993 z + 0.004292
-  % ----------------------
-  % z^2 - 1.635 z + 0.6347
-
-
-% with 0.006s sampling time
-  % 0.001495 z + 0.001392
-  % ----------------------
-  % z^2 - 1.808 z + 0.8084
-
-%with 0.008s sampling time
-  % 0.002597 z + 0.002363
-  % ----------------------
-  % z^2 - 1.753 z + 0.7531
-
-% with 0.006s sampling time (TA plant)
-  % 0.001903 z + 0.001738
-  % ----------------------
-  % z^2 - 1.761 z + 0.7613
-
-% with 0.008s sampling time (TA plant)
-  % 0.003287 z + 0.002912
-  % ----------------------
-  % z^2 - 1.695 z + 0.6951
-
-% with SF = 10
-  % 0.009049 z + 0.007343
-  % ----------------------
-  % z^2 - 1.533 z + 0.5335
-
-% with 0.009s sampling time (TA Plant)
-  % 0.004102 z + 0.003579
-  % ----------------------
-  % z^2 - 1.664 z + 0.6643
-
-% with 0.009s sampling time
-  % 0.003251 z + 0.002923
-  % ----------------------
-  % z^2 - 1.727 z + 0.7268
 
 % LAB 3 (0.1s sampling time) TA plant
   % -0.001294 z - 0.001294
   % ----------------------
-  %     z^2 - 2 z + 1
- 
+  %     z^2 - 2z + 1
+
+
+% LAB 3 (0.4s sampling time) TA plant
+  % -0.02071 z - 0.02071
+  % --------------------
+  %    z^2 - 2 z + 1
+
+
+
+%Convert to Discrete
+G_c2d = c2d(P, T);
+
+% does the plant have a double integrator?
+double_integrator_flag = 1;
+
+% should the controller have an integrator?
+controller_integrator_flag = 0;
+
 %% Plant Poles and Coefficients in its Partial Fraction Decomposition
 
-% test plant (T = 0.02):
-% stableRealPlantPoles = [0.999606 0.492394];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [];
-% cs = [0.0502835 -0.0360335]; %coefficients
-
-% test plant (T = 0.015):
-% stableRealPlantPoles = [0.5870314033];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [1.0009685967];
-% cs = [-0.0290966278 0.0375496278]; %coefficients
-
-%test plant (T = 0.01):
-% stableRealPlantPoles = [0.700331];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [1.00167];
-% cs = [-0.0209288 0.0248978 ]; %coefficients
-
-%test plant (T = 0.01) (TA plant):
-% stableRealPlantPoles = [0.63418];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [1.00082];
-% cs = [-0.0203427 0.0253357]; %coefficients
-
-%test plant (SF = 10) (TA plant)
-% stableRealPlantPoles = [0.998927 0.534073];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [];
-% cs = [0.0352418  -0.0261928]; %coefficients
-
-% %test plant (T = 0.006):
-% stableRealPlantPoles = [0.997894 0.810106];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [];
-% cs = [0.015357 -0.013862]; %coefficients
-
-%test plant (T = 0.006) (TA plant):
-% stableRealPlantPoles = [0.998738 0.762262];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [];
-% cs = [0.0153867 -0.0134837]; %coefficients
-
-%test plant (T = 0.008):
-% stableRealPlantPoles = [0.999594 0.753406];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [];
-% cs = [0.0201428 -0.0175458]; %coefficients
-
-% %test plant (T = 0.008) (TA plant):
-% stableRealPlantPoles= [0.999672 0.695328];
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [];
-% cs = [0.0203649 -0.0170779]; %coefficients
-
-%test plant (T = 0.009) (TA plant):
-% stableRealPlantPoles = [0.999105 0.664895]; 
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [];
-% cs = [0.0229716 -0.0188696]; %coefficients
-
-% %test plant (T = 0.009) :
-% stableRealPlantPoles = [0.726269]; 
-% stableComplexPlantPoles = [];
-% unstablePlantPoles = [1.00073];
-% cs = [-0.0192526 0.0225036]; %coefficients
-
-%LAB 3 (0.1s sampling time) TA plant
-stableRealPlantPoles = []; 
+stableRealPlantPoles = [];
 stableComplexPlantPoles = [];
-unstablePlantPoles = [1.00 1.00];
-cs = [-0.001294 -0.002588]; %coefficients
+unstablePlantPoles = [1];
+
+if double_integrator_flag
+    if unstablePlantPoles(end) ~= 1
+        disp('The final unstable plant pole must be z=1!');
+        stop
+    elseif length(find(unstablePlantPoles == 1)) > 1
+  disp('There should only be one pole at z=1 included in unstablePlantPoles!');
+        stop
+    end
+end
 
 stablePlantPoles = [stableRealPlantPoles stableComplexPlantPoles];
 qs = [stablePlantPoles unstablePlantPoles];
-qs
 
-cs
+%(0.4s sampling time) TA plant
+
+% coefficents go in order of the poles
+cs = [-0.02071];
+
+if double_integrator_flag
+    % coefficients include both c_n for 1/(z-1) and c_(n+1) for 1/(z-1)^2 for
+    %       the pole at z=1
+    c_double_integrator = -0.04142;
+    cs = [cs c_double_integrator];
+end     
 
 n = length(qs);
 nhat = length(stablePlantPoles);
 nreal = length(stableRealPlantPoles);
 ncomplex = length(stableComplexPlantPoles);
 
+% verify that your plant is correct!
+z = tf('z',T);
+G = 0;
+for k=1:n
+    G = G + cs(k)/(z-qs(k));
+end
+if double_integrator_flag
+    G = G + c_double_integrator/(z-1)^2;
+end
+G
 
 %% Poles Chosen in the Simple Pole Approximation of W[z]
 
+j = sqrt(-1);
 realWPoles = [];
 
-%default (6 poles)
-%complexWPoles = [-0.229587+0.0979663*j -0.229587-0.0979663*j 0.104614+0.337152*j 0.104614-0.337152*j 0.427919+0.0617113*j 0.427919-0.0617113*j]; % only 6 closest?
-
-%T = 0.02 (8 poles) 0.8 range
-%complexWPoles =[-0.367905997907408+0.156987823425114*j -0.367905997907408-0.156987823425114*j 0.167640262224593+0.540274691690505*j 0.167640262224593-0.540274691690505*j 0.685726405854943+0.098890324669614*j 0.685726405854943-0.098890324669614*j 0.553548232962454+0.577567618365283*j 0.553548232962454-0.577567618365283*j ]
-
-%T = 0.02 (6 poles) 0.3 range
-%complexWPoles =[ -0.159307970196240-0.067977721585487*j -0.159307970196240+0.067977721585487*j 0.072590362891791-0.233945804012891*j 0.072590362891791+0.233945804012891*j 0.296928243758090-0.042820766676188*j 0.296928243758090+0.042820766676188*j]
-
-
-%T = 0.008 (6 poles) 0.9 range
-%complexWPoles = [-0.213734+0.0912017*j -0.213734-0.0912017*j 0.0973902+0.313871*j 0.0973902-0.313871*j 0.398371+0.0574501*j 0.398371-0.0574501*j]
-
-%T = 0.009 (8 poles) 0.95 range
-complexWPoles = [-0.436888372515046+0.186423040317322j, -0.436888372515046-0.186423040317322j, 0.199072811391704+0.641576196382474j, 0.199072811391704-0.641576196382474j, 0.814300106952745+0.117432260545167j, 0.814300106952745-0.117432260545167j, 0.657338526642914+0.685861546808774j, 0.657338526642914-0.685861546808774j];
-
-
-%from gen poles function
-%complexWPoles = [gen_poles];
-
+% complexWPoles = [0.4+0.1*j 0.4-0.1*j 0.5+0.1*j 0.5-0.1*j];
+% % for checking the integrator in the controller:
+% complexWPoles = [0.4+0.1*j 0.4-0.1*j 0.5+0.1*j 0.5-0.1*j 0.6+0.1*j 0.6-0.1*j];
+complexWPoles = [gen_poles];
 
 ps = [realWPoles complexWPoles];
-
-ps
 
 mreal = length(realWPoles);
 mcomplex = length(complexWPoles);
@@ -220,37 +104,61 @@ for i=1:m
     for k=1:n
         alpha(i,i) = alpha(i,i) + cs(k)/(ps(i)-qs(k));
     end
+    if double_integrator_flag
+        alpha(i,i) = alpha(i,i) + cs(n+1)/((ps(i)-1)^2);
+    end
 end
 
 beta = zeros(n,m);
+if double_integrator_flag
+    beta = zeros(n+1,m);
+end
 
 for i=1:m
     for k=1:n
         beta(k,i) = cs(k)/(qs(k)-ps(i));
     end
+    if double_integrator_flag
+        beta(n,i) = beta(n,i) - cs(n+1)/((1-ps(i))^2);
+        beta(n+1,i) = cs(n+1)/(1-ps(i));
+    end
 end
 
 gamma = zeros(n-nhat,m);
+if double_integrator_flag
+    gamma = zeros(n+1-nhat,m);
+end
 
 for i=1:m
     for j=(nhat+1):n
         gamma(j-nhat,i) = cs(j)/(qs(j)-ps(i));
     end
+    if double_integrator_flag
+        gamma(n-nhat,i) = gamma(n-nhat,i) - cs(n+1)/((1-ps(i))^2);
+        gamma(n+1-nhat,i) = cs(n+1)/(1-ps(i));
+    end
 end
 
 gammaHat = zeros(n-nhat,nhat);
+if double_integrator_flag
+    gammaHat = zeros(n+1-nhat,nhat);
+end
 
 for k=1:nhat
     for j=(nhat+1):n
         gammaHat(j-nhat,k) = cs(j)/(qs(j)-qs(k));
     end
+    if double_integrator_flag
+        gammaHat(n-nhat,k) = gammaHat(n-nhat,k) - cs(n+1)/((1-qs(k))^2);
+        gammaHat(n+1-nhat,k) = cs(n+1)/(1-qs(k));
+    end
 end
 
-% TODO: verify on a simple example that alpha, beta, gamma, and gammahat are correct!
-alpha
-beta
-gamma
-gammaHat
+% verify on a simple example that alpha, beta, gamma, and gammahat are correct!
+%alpha
+%beta
+%gamma
+%gammaHat
 
 %% Determination of A and b matrices for IOP equations
 
@@ -260,32 +168,23 @@ A = [alpha eye(m) zeros(m,nhat);
      zeros(size(gamma)) gamma gammaHat];
 
 b = [zeros(m+size(beta,1),1);
-     -cs((nhat+1):end) ];
-
-A
-b
+     -cs((nhat+1):end)'];
 
 %% Determination of step response matrices
 
 % time horizon
 K = 100;
-% K=5; % initial K
-
-amplitude = 1.40000;
-offset = -0.7;
 
 step_ry = zeros(K,m+nhat);
 
 for k=1:K
     for i=1:m
-        step_ry(k,i) = -(1-ps(i)^k)/(1-ps(i)); % row k, i=1 to m
+        step_ry(k,i) = -(1-ps(i)^k)/(1-ps(i));
     end
     for j=1:nhat
         step_ry(k,m+j) = -(1-qs(j)^k)/(1-qs(j));
     end
 end
-
-% step_ry=amplitude*step_ry;
 
 step_ru = zeros(K,m);
 
@@ -295,30 +194,42 @@ for k=1:K
     end
 end
 
-
 step_ry = step_ry * amplitude;
 step_ru = step_ru * amplitude;
 
-% step_ru=amplitude*step_ru;
-
 % verify on a simple example that step_ry and step_ru are correct!
-% step_ry
-% step_ru
+%step_ry
+%step_ru
 
 %% Determination of steady state vector
 
 steadyState = zeros(1,m+nhat);
+if controller_integrator_flag
+    steadyState = zeros(3,m+nhat);
+end
 
 for i=1:m
-    steadyState(i) = 1/(1-ps(i));
+    if ~controller_integrator_flag    
+        steadyState(i) = 1/(1-ps(i));
+    else
+        steadyState(1,i) = 1/(1-ps(i));
+        steadyState(2,i) = 1/(1-ps(i))^2;
+        steadyState(3,i) = 1/(1-ps(i))^3;
+    end
 end
 
 for k=1:nhat
-    steadyState(m+k) = 1/(1-qs(k));
+    if ~controller_integrator_flag
+        steadyState(m+k) = 1/(1-qs(k));
+    else
+        steadyState(1,m+k) = 1/(1-qs(k));
+        steadyState(2,m+k) = 1/(1-qs(k))^2;
+        steadyState(3,m+k) = 1/(1-qs(k))^3;
+    end
 end
 
 % verify on a simple example that steadyState is correct!
-% steadyState = amplitude*steadyState;
+%steadyState
 
 %% Defining the variables for the optimization
 
@@ -352,34 +263,35 @@ end
 
 %% Defining the objective function and constraints for the optimization
 
-Objective = 0; 
-%Objective = -max(step_ry*[x;xhat]);
-
-fprintf('size(A)=%dx%d, size(w)=%dx%d, size(x)=%dx%d, size(xhat)=%dx%d, size(b)=%dx%d\n', ...
-    size(A), size(w), size(x), size(xhat), size(b));
+Objective = 0;
 
 % IOP constraint
 Constraints = [A*[w;x;xhat] == b];
 
-
 % input saturation constraint
 Constraints = [Constraints,
-               max(step_ru*w) <= 6,
-               min(step_ru*w) >= -6];
+               max(step_ru*w) <= 0.7,
+               min(step_ru*w) >= -0.7];
 
 % steady state constraint
-Constraints = [Constraints,
-               1+steadyState*[x;xhat] == 0];
+if ~controller_integrator_flag
+    Constraints = [Constraints,
+                   steadyState*[x;xhat]+1==0];
+else
+    Constraints = [Constraints,
+                   steadyState*[x;xhat]+[1;0;0]==[0;0;0]];
+end
 
 % overshoot constraint
 Constraints = [Constraints,
-               max(step_ry*[x;xhat]) <= (amplitude+0.05)*(-steadyState*[x;xhat])];
+               max(step_ry*[x;xhat]) <= amplitude*1.45*(-steadyState(1,:)*[x;xhat])];
 
-jhat = 0.2/T;
 % settling time constraint
+jhat = 7/T;
 Constraints = [Constraints,
-               max(step_ry(jhat:end, :)*[x;xhat]) <= amplitude*1.02*(-steadyState*[x;xhat]),
-               min(step_ry(jhat:end, :)*[x;xhat]) >= amplitude*0.98*(-steadyState*[x;xhat])];
+               max(step_ry(jhat:end,:)*[x;xhat]) <= amplitude*1.02*(-steadyState(1,:)*[x;xhat]),
+               min(step_ry(jhat:end,:)*[x;xhat]) >= amplitude*0.98*(-steadyState(1,:)*[x;xhat])];
+
 %% Solving the optimization problem
 
 % set some options for YALMIP and solver
@@ -398,13 +310,11 @@ xhatsol = value(xhat);
 figure(1)
 plot(T*(1:K),step_ry*[xsol;xhatsol]);
 xlabel('Time [s]');
-title('y[k] output')
 ylabel('y[k]');
 
 figure(2)
 plot(T*(1:K),step_ru*wsol);
 xlabel('Time [s]');
-title('u[k] output')
 ylabel('u[k]');
 
 % use log scale for heat map?
@@ -431,7 +341,6 @@ colorbar;
 z = tf('z',T);
 
 % calculate W
-
 W = 0;
 for i=1:m
     W = W + wsol(i)/(z-ps(i));
@@ -458,122 +367,66 @@ num{1} = real(num{1});
 den{1} = real(den{1});
 X = tf(num,den,T);
 
-W
-X
+% find the poles and zeros of W and X (if desired)
+%zpk(W)
+%zero(W)
+%pole(W)
+%zpk(X)
+%zero(X)
+%pole(X)
 
-% --- Using your existing W and X transfer functions ---
-D = W / X;
+%% Verify design in DT
 
-% hand num and den of D[z] over to simulink discrete TF block
-format long
-
-% Show the simplified discrete transfer function
-zpk(D)
-
-[zD0, pD0, ~] = zpkdata(D, 'v');
-fprintf('\nBefore simplification:\n');
-fprintf('  Zeros: %d\n', numel(zD0));
-fprintf('  Poles : %d\n', numel(pD0));
-
-
-%% Snap nearly identical poles/zeros (e.g. z=1 vs z=0.998)
-[zD_snap, pD_snap, kD_snap] = zpkdata(D, 'v');
-snap_tol = 0.01;  % adjust if needed
-pD_snap(abs(pD_snap - 1) < snap_tol) = 1;
-zD_snap(abs(zD_snap - 1) < snap_tol) = 1;
-D_snap = zpk(zD_snap, pD_snap, kD_snap, D.Ts);
-
-%% Simplify D[z] by canceling pole-zero pairs and display result
-tol = 0.01;                  % numerical tolerance
-D_simplified = minreal(D_snap, tol);  % remove near-canceling poles/zeros
-disp('Final simplified D[z]:');
-zpk(D_simplified)
-
-% --- Count poles and zeros of final D[z] ---
-[zD, pD, kD] = zpkdata(D_simplified, 'v');
-fprintf('\nAfter simplification (tol = %.3g):\n', tol);
-fprintf('\nNumber of zeros in D[z]: %d\n', numel(zD));
-fprintf('Number of poles in D[z]: %d\n', numel(pD));
-
-
-
-[num_ds, den_ds] = tfdata(D_simplified,'v');  
-
-
-
-% find the poles and zeros of W and X
-zpk(W);
-zero(W);
-pole(W);
-zpk(X);
-zero(X);
-pole(X);
-
-%% Verify design in discrete time
-% 
 % % compute D by hand
 % j = sqrt(-1);
-% D = 0.43333*((z-0.4)*(z-0.5))/((z-1)*(z-0.3393));
-% zpk(D)
+% D = (0.15246*(z-0.8423)*(z-0.8))/((z+0.4903)*(z-0.7796)*(z-0.3107));
 % 
-% denom=1+G*D;
-% T_ry_num=G*D;
-% zpk(T_ry_num)
-% zpk(denom)
+% % compute T_ry and T_ru by hand  (using Nf, Dg, etc)
+% T_ry = (0.15246*(z-0.8423)*(z-0.8)*5*(z-0.7672)*(z-0.3128))/...
+%        (0.15246*(z-0.8423)*(z-0.8)*5*(z-0.7672)*(z-0.3128) + ...
+%         (z+0.4903)*(z-0.7796)*(z-0.3107)*(z-1)^2*(z-0.8));
+% T_ru = (0.15246*(z-0.8423)*(z-0.8)*(z-1)^2*(z-0.8))/...
+%        (0.15246*(z-0.8423)*(z-0.8)*5*(z-0.7672)*(z-0.3128) + ...
+%         (z+0.4903)*(z-0.7796)*(z-0.3107)*(z-1)^2*(z-0.8));
 % 
-% % % compute T_ry and T_ru by hand
-% T_ry = 0.88399*(z-0.4)/((z+0.02002)*(z^2-0.8*z+0.32));
-% T_ru = 0.88399*(z-0.4)*(z-0.5)/((z+0.02002)*(z^2-0.8*z+0.32));
+% figure(1)
+% hold on;
+% step(T_ry,'g');
+% hold off;
 % 
-% 
-% t = T*(1:K);
-% 
-% 
-% figure(3)
-% [y1, t1] = step(T_ry, t);
-% plot(t1, y1), grid on
-% xlabel('Time [s]'); ylabel('T_{ry}[k]'); title('Step: T_{ry}')
-% 
-% figure(4)
-% [y2, t2] = step(T_ru, t);
-% plot(t2, y2), grid on
-% xlabel('Time [s]'); ylabel('T_{ru}[k]'); title('Step: T_{ru}')
+% figure(2)
+% hold on;
+% step(T_ru,'g');
+% hold off;
 
 
-% ---------- Values & metrics: 0 → amplitude ----------
-wsol  = value(w);
-xsol  = value(x);
-xhsol = value(xhat);
+%% Metrics for the step response (using solved w/x/xhat)
 
-% model-predicted trajectories (no offset)
-y_traj = real(step_ry*[xsol; xhsol]);   % Kx1, step_ry already scaled by 'amplitude'
-u_traj = real(step_ru*wsol);            % Kx1, step_ru already scaled by 'amplitude'
+% model-predicted trajectories (your step_ry/step_ru are already scaled by 'amplitude')
+y_traj = real(step_ry*[xsol; xhatsol]);   % Kx1
+u_traj = real(step_ru*wsol);              % Kx1
 
 % step endpoints
-y0                = 0;
-y_final_desired   = amplitude;          % e.g., 1.4
+y_final_desired = amplitude;              % desired final value for the step
+y_ss            = y_traj(end);            % achieved steady-state (last point in horizon)
 
-% achieved steady state (last sample in the horizon)
-y_ss = y_traj(end);
-
-% steady-state error (signed, relative to desired)
+% steady-state error
 ess = y_ss - y_final_desired;
 
-% overshoot (relative to commanded amplitude)
+% overshoot
 [y_max, k_peak] = max(y_traj);
-OS = (y_max - y_final_desired) / max(1e-12, amplitude);   % clip to 0 when reporting in %
+OS = (y_max - y_final_desired) / max(1e-12, amplitude);   % safe divide
 
-% 2% settling time (band around desired final)
+% 2% settling time (relative to desired final value)
 tol = 0.02 * amplitude;
-Ksettle = K;  % default: last sample is settled
+Ksettle = K;  % default: assume settled by end
 for kk = K-1:-1:1
     if abs(y_traj(kk) - y_final_desired) > tol
-        Ksettle = kk + 1;               % first index from which we're within band
+        Ksettle = kk + 1;   % first index from which we're within band
         break;
     end
 end
-Ts = T * (Ksettle - 1);                 % time at sample Ksettle
-
+Ts = T * (Ksettle - 1);     % time at sample Ksettle
 
 % input usage
 maxu = max(abs(u_traj));
@@ -587,4 +440,6 @@ fprintf('Peak value y_max (k=%d)   : %.6g\n', k_peak, y_max);
 fprintf('Overshoot                 : %.3f %%\n', 100*max(0,OS));
 fprintf('2%% settling index         : %d of %d\n', Ksettle, K);
 fprintf('2%% settling time Ts       : %.6g s\n', Ts);
-fprintf('Max |u[k]|                 : %.6g\n', maxu);
+fprintf('Max |u[k]|                : %.6g\n', maxu);
+
+
