@@ -6,7 +6,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % set time step
-T = 0.009;
+T = 0.1;
 j = sqrt(-1);
 
 amplitude = 1.4000;
@@ -14,8 +14,10 @@ offset = -0.7;
 
 s = tf('s');
 %P = 2.51124/(s*(0.02821*s+1)); % own values
-P = 2.542/(s*(0.022*s+1)); % TA values
+%P = 2.542/(s*(0.022*s+1)); % TA values
 
+%LAB 3 PLANT
+P = -0.2588729/(s*s);
 
 % %--- Pick Ts from rule of thumb: ws > (5..10)w_bw ---
 % poles = pole(P);                  % continuous-time poles (rad/s)
@@ -72,7 +74,6 @@ syms z
   % z^2 - 1.695 z + 0.6951
 
 % with SF = 10
-
   % 0.009049 z + 0.007343
   % ----------------------
   % z^2 - 1.533 z + 0.5335
@@ -86,6 +87,11 @@ syms z
   % 0.003251 z + 0.002923
   % ----------------------
   % z^2 - 1.727 z + 0.7268
+
+% LAB 3 (0.1s sampling time) TA plant
+  % -0.001294 z - 0.001294
+  % ----------------------
+  %     z^2 - 2 z + 1
  
 %% Plant Poles and Coefficients in its Partial Fraction Decomposition
 
@@ -144,10 +150,10 @@ syms z
 % cs = [0.0203649 -0.0170779]; %coefficients
 
 %test plant (T = 0.009) (TA plant):
-stableRealPlantPoles = [0.999105 0.664895]; 
-stableComplexPlantPoles = [];
-unstablePlantPoles = [];
-cs = [0.0229716 -0.0188696]; %coefficients
+% stableRealPlantPoles = [0.999105 0.664895]; 
+% stableComplexPlantPoles = [];
+% unstablePlantPoles = [];
+% cs = [0.0229716 -0.0188696]; %coefficients
 
 % %test plant (T = 0.009) :
 % stableRealPlantPoles = [0.726269]; 
@@ -155,6 +161,11 @@ cs = [0.0229716 -0.0188696]; %coefficients
 % unstablePlantPoles = [1.00073];
 % cs = [-0.0192526 0.0225036]; %coefficients
 
+%LAB 3 (0.1s sampling time) TA plant
+stableRealPlantPoles = []; 
+stableComplexPlantPoles = [];
+unstablePlantPoles = [1.00 1.00];
+cs = [-0.001294 -0.002588]; %coefficients
 
 stablePlantPoles = [stableRealPlantPoles stableComplexPlantPoles];
 qs = [stablePlantPoles unstablePlantPoles];
