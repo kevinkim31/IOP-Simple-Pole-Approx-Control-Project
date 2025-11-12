@@ -72,7 +72,6 @@ syms z
   % z^2 - 1.695 z + 0.6951
 
 % with SF = 10
-
   % 0.009049 z + 0.007343
   % ----------------------
   % z^2 - 1.533 z + 0.5335
@@ -362,7 +361,7 @@ Constraints = [Constraints,
 
 % overshoot constraint
 Constraints = [Constraints,
-               max(step_ry*[x;xhat]) <= (amplitude+0.05)*(-steadyState*[x;xhat])];
+               max(step_ry*[x;xhat]) <= amplitude*1.05*(-steadyState*[x;xhat])];
 
 jhat = 0.2/T;
 % settling time constraint
