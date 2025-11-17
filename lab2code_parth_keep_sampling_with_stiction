@@ -32,11 +32,13 @@ const double ball_offset = -71.0/236.0; // zero at ADC=435
 // D(z) = N(z)/D(z)
 // N(z) = a0 + a1 z^-1 + a2 z^-2 + a3 z^-3 + a4 z^-4 + a5 z^-5 + a6 z^-6 + a7 z^-7
 // D(z) = b0 + b1 z^-1 + b2 z^-2 + b3 z^-3 + b4 z^-4 + b5 z^-5 + b6 z^-6 + b7 z^-7 + b8 z^-8
-double num[] = {3.35691708192918  ,  -7.04663430176872 ,   6.97634835237982 ,   -4.15645936949011  ,  4.58060382803318  ,  -6.14027996419204,    4.92529313916834  ,  -1.58492749103628};  // MATALB: num_ds [TAKE OUT FIRST ELEMENT FROM MATLAB (=0)]
-double den[] = {1.00000000000 ,   -2.13319086758922   , 2.14467988019518   , -0.864588215839821   , -0.110317399308545  ,  0.284694217858913,    -0.0934966917459418  ,  -0.0522913361772104  ,  0.0499173735455755}; // MATLAB: den_ds 
+double num[] = {4.28571428571429,    -7.47346203192054,    6.50702868019854,   -2.06203123396217,    -0.102634444532833,    -0.772187468930284,    2.58979133331801,    -1.39345261821552};  // MATALB: num_ds [TAKE OUT FIRST ELEMENT FROM MATLAB (=0)]
+double den[] = {1.00000000000000 ,   -1.74291294381461,    1.50006108548708,    -0.494398873930484,    -0.0351683941949983,    0.126070763073284,    -0.0221429806981165,    -0.00266656583287233,    0.0179586003866532}; // MATLAB: den_ds 
 
-const int NUM_LEN = sizeof(num) / sizeof(num[0]);
-const int DEN_LEN = sizeof(den) / sizeof(den[0]);
+// const int NUM_LEN = sizeof(num) / sizeof(num[0]);
+// const int DEN_LEN = sizeof(den) / sizeof(den[0]);
+const int NUM_LEN = 8;
+const int DEN_LEN = 9;
 const int E_HIST_LEN = (NUM_LEN > 0) ? NUM_LEN - 1 : 0;
 const int U_HIST_LEN = (DEN_LEN > 0) ? DEN_LEN - 1 : 0;
 
@@ -51,20 +53,27 @@ double uHist[U_HIST_LEN] = {0};
 // const double Vstick_CCW = 0.148; // measured CCW stiction (V)
 
 // Stiction with beam + ball
-const double V_zero = 0.58; // measured V that makes beam + ball stay in place at 0 deg, should stay positive here--> stuttering with steady state below zero
-const double Vstick_CW = V_zero - 0.1; // measured CW stiction (V), then CW offset should be negative and small, V_zero - stick_CW
-const double Vstick_CCW = V_zero + 0.1; // measured CCW stiction (V), then CCW offset should be positive and larger, V_zero + stick_CCW
+// const double V_zero = 0.58; // measured V that makes beam + ball stay in place at 0 deg, should stay positive here--> stuttering with steady state below zero
+// const double Vstick_CW = V_zero - 0.1; // measured CW stiction (V), then CW offset should be negative and small, V_zero - stick_CW
+// const double Vstick_CCW = V_zero + 0.1; // measured CCW stiction (V), then CCW offset should be positive and larger, V_zero + stick_CCW
 
-// const double V_zero = 0.42;  // these values were calculted via physical measurements; no stuttering but cause steady state error with beam + ball
+const double V_zero = 0.42;  // these values were calculted via physical measurements; no stuttering but cause steady state error with beam + ball
 // const double Vstick_CW = V_zero - 0.35;
 // const double Vstick_CCW = V_zero + 0.115;
+
+// without ball
+// const double Vstick_CW = 0.3;
+// const double Vstick_CCW = 0.1;
+// with ball
+const double Vstick_CW = 0.2;
+const double Vstick_CCW = 0.175;
 
 
 // DEFINE OUTPUT Y (STEP_AMP) AND INPUT R (theta_ref) 
 // ***************************************************
 // const double STEP_AMP = 40.0 * M_PI / 180.0; // step input in radians
-const double STEP_AMP = 0.1; 
-double theta_ref = -0.1;
+const double STEP_AMP = 0.7; 
+double theta_ref = -0.7;
 // ***************************************************
 
 
@@ -99,25 +108,25 @@ void loop() {
     // Reference: 0 rad until 3.0 s, then step to STEP_AMP
     unsigned long t_ms = millis() - t0;
     // Toggle every 3 seconds: -0.7 for first 3s, 0.7 for next 3s, repeat
-    int period_count = (t_ms / 10000) % 2;
+    int period_count = (t_ms / 8000) % 2;
     if (period_count == 0) {
-      theta_ref = -0.1;
+      theta_ref = -0.7;
     } else {
-      theta_ref = 0.1;
+      theta_ref = 0.7;
     }
 
     //(f) Saturator: update theta ref if within range (+/- 0.7 rad)
-    if (t_ms >= 3000) {
-      if (STEP_AMP < (-SAT_LIMIT)) {
-        theta_ref = -SAT_LIMIT;
-      }
-      else if (STEP_AMP > (SAT_LIMIT)) {
-        theta_ref = SAT_LIMIT;
-      }
-      else {
-        theta_ref = STEP_AMP;
-      }
-    }
+    // if (t_ms >= 3000) {
+    //   if (STEP_AMP < (-SAT_LIMIT)) {
+    //     theta_ref = -SAT_LIMIT;
+    //   }
+    //   else if (STEP_AMP > (SAT_LIMIT)) {
+    //     theta_ref = SAT_LIMIT;
+    //   }
+    //   else {
+    //     theta_ref = STEP_AMP;
+    //   }
+    // }
 
     double e = theta_ref - theta;
 
@@ -134,11 +143,31 @@ void loop() {
     u /= den[0];
 
 
-    double u_stiction = u;
+    double u_stiction = u*-1.0;
 
-    if (u_stiction > 0.0) u_stiction += Vstick_CW;
-    else if (u_stiction < 0.0) u_stiction -= Vstick_CCW;
-    setMotorVoltage(u_stiction*-1.0);
+    // if (abs(e) >= 0.01) {
+      if (theta_ref > 0.0) u_stiction -= Vstick_CW; // switch <, > if needed GOOD
+      else if (theta_ref < 0.0) u_stiction  -= Vstick_CCW; //+ve theta_ref=CCW
+    // }
+
+    // if (abs(e) < 0.02) {
+    //   // u_stiction=uHist[0];
+    //   if (u_stiction > 0.0) u_stiction = Vstick_CW; // switch <, > if needed
+    //   else if (u_stiction < 0.0) u_stiction = -Vstick_CCW;
+    // }
+
+    //voltage saturator
+    if (u_stiction < (-6.0)) {
+      u_stiction = -6.0;
+    }
+    else if (u_stiction > (6.0)) {
+      u_stiction = 6.0;
+    }
+    else {
+      u_stiction = u_stiction;
+    }
+    // setMotorVoltage(u_stiction*-1.0);
+    setMotorVoltage(u_stiction);
     
     // ====== Update histories AFTER computing u ======
     // shift u history
@@ -159,15 +188,15 @@ void loop() {
 
     // Logging
     static uint8_t decim = 0;
-    if (++decim >= 10) {   // print every 10th sample, with set_control_interval_ms(2) in setup, sampling time is 20ms
+    // if (++decim >= 10) {   // print every 10th sample, with set_control_interval_ms(2) in setup, sampling time is 20ms
       decim = 0;
       Serial.print(t_ms / 1000.0, 4);  Serial.print(",");
       Serial.print(theta_ref, 6);       Serial.print(",");
       Serial.print(theta, 6);           Serial.print(",");
-      // Serial.print(u, 4); Serial.print(",");
-      Serial.print(ball_pos_m,6); Serial.print(",");
-      Serial.println(pos_counts);          //adc
-    }
+      Serial.print(u_stiction, 4); Serial.print(",");
+      Serial.println(ball_pos_m,6);
+      // Serial.println(pos_counts);          //adc
+    // }
   }
 }
 
