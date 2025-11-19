@@ -14,24 +14,16 @@ volatile int motorADC = 0;     // gear angle reading from A/D
 volatile int pos_counts = 0;       // ball position reading from A/D (not used for lab 1)
 volatile bool new_data_available = false;  // flag to indicate new sensor data
 
-// Angle calibration
+// Angle calibration (lab 1)
 const double m = -0.01427996661; // rad/ADC
 const double offset = 435.0; // zero at ADC=435
 const double SAT_LIMIT = 0.7;
 
-const double m_ball = 3.0/2950.0; // rad/ADC
+// Ball position calibration (lab 2)
+const double m_ball = 3.0/2950.0; // m/ADC
 const double ball_offset = -71.0/236.0; // zero at ADC=435
 
-// const double m_ball =  0.00022522522; // rad/ADC
-// const double ball_offset = -0.2522727273; // zero at ADC=435
-
-// const double m_ball =  0.00024600000; // rad/ADC
-// const double ball_offset = -0.27600000; // zero at ADC=435
-
-// ------- Controller Coefficients (EDIT THESE) -------
-// D(z) = N(z)/D(z)
-// N(z) = a0 + a1 z^-1 + a2 z^-2 + a3 z^-3 + a4 z^-4 + a5 z^-5 + a6 z^-6 + a7 z^-7
-// D(z) = b0 + b1 z^-1 + b2 z^-2 + b3 z^-3 + b4 z^-4 + b5 z^-5 + b6 z^-6 + b7 z^-7 + b8 z^-8
+// ------- Inner Loop Controller Coefficients (EDIT THESE) -------
 double num[] = {4.28571428571429,    -7.47346203192054,    6.50702868019854,   -2.06203123396217,    -0.102634444532833,    -0.772187468930284,    2.58979133331801,    -1.39345261821552};  // MATALB: num_ds [TAKE OUT FIRST ELEMENT FROM MATLAB (=0)]
 double den[] = {1.00000000000000 ,   -1.74291294381461,    1.50006108548708,    -0.494398873930484,    -0.0351683941949983,    0.126070763073284,    -0.0221429806981165,    -0.00266656583287233,    0.0179586003866532}; // MATLAB: den_ds 
 
@@ -47,35 +39,46 @@ double eHist[E_HIST_LEN] = {0};
 double uHist[U_HIST_LEN] = {0};
 
 
-
-// (d) Stiction without beam + ball
-// const double Vstick_CW = 0.147; // measured CW stiction (V)
-// const double Vstick_CCW = 0.148; // measured CCW stiction (V)
-
-// Stiction with beam + ball
-// const double V_zero = 0.58; // measured V that makes beam + ball stay in place at 0 deg, should stay positive here--> stuttering with steady state below zero
-// const double Vstick_CW = V_zero - 0.1; // measured CW stiction (V), then CW offset should be negative and small, V_zero - stick_CW
-// const double Vstick_CCW = V_zero + 0.1; // measured CCW stiction (V), then CCW offset should be positive and larger, V_zero + stick_CCW
-
+// Stiction with beam + ball (lab 2)
 const double V_zero = 0.42;  // these values were calculted via physical measurements; no stuttering but cause steady state error with beam + ball
-// const double Vstick_CW = V_zero - 0.35;
-// const double Vstick_CCW = V_zero + 0.115;
 
-// without ball
-// const double Vstick_CW = 0.3;
-// const double Vstick_CCW = 0.1;
-// with ball
 const double Vstick_CW = 0.2;
 const double Vstick_CCW = 0.175;
 
 
-// DEFINE OUTPUT Y (STEP_AMP) AND INPUT R (theta_ref) 
+// DEFINE INPUT STEP 
 // ***************************************************
-// const double STEP_AMP = 40.0 * M_PI / 180.0; // step input in radians
-const double STEP_AMP = 0.7; 
-double theta_ref = -0.7;
+// Ball position reference for Lab 3:
+// 0.10m for first 10 seconds, then 0.25m forever
+const double Y_MIN = 0.10;
+const double Y_MAX = 0.25;
+double y_ref = Y_MIN;
+
+double theta_ref = 0.0;
 // ***************************************************
 
+
+const unsigned long Y_SWITCH_TIME_MS = 10000;   // at 10 s, step 0.10 -> 0.25
+
+
+// ------- Outer Loop Controller Coefficients (EDIT THESE) Lab 3-------
+// Outer-loop period ~0.4 s, inner loop is 9 ms
+const int OUTER_DIV = 50;          // 50 * 9ms =0.45s
+int outer_counter = 0; // int outer_counter = OUTER_DIV; if you want the outter loop to run once in the very beginning
+
+double num2[] = {-4.45996227571200,    -1.92355995102333,    -0.173784429720078,    -0.137812081944388,    0.619293435094673,    1.25814549626940,    -3.27749683566988,    4.19900862316931,    -4.29482518245334,    3.97927734131421}; 
+double den2[] = {1.00000000000000,    0.440567417878844,    1.10232215910769,    0.693492354070722,    0.790469925237794,    0.533503059606313,    0.506168126814710,    0.406322547704159,    0.294367625670335,    0.201097076728316,    0.104480579020385}; 
+
+// const int NUM2_LEN = sizeof(num2) / sizeof(num2[0]);
+// const int DEN2_LEN = sizeof(den2) / sizeof(den2[0]);
+const int NUM2_LEN = 10;
+const int DEN2_LEN = 11;
+
+const int E_HIST_LEN_2 = (NUM2_LEN > 0) ? NUM2_LEN - 1 : 0;
+const int U_HIST_LEN_2 = (DEN2_LEN > 0) ? DEN2_LEN - 1 : 0;
+
+double eHist_2[E_HIST_LEN_2] = {0};
+double uHist_2[U_HIST_LEN_2] = {0};
 
 
 unsigned long t0;
@@ -101,32 +104,69 @@ void loop() {
     // Read sensors
     double theta = m * ((double)motorADC - offset); // scaled motor angle reading [radians]
 
-    double ball_pos_m = m_ball*((double)pos_counts) + ball_offset; // scaled 
+    double ball_pos_m = m_ball*((double)pos_counts) + ball_offset; // scaled y reading [meters]
 
-    // double ball_pos_m = m_ball*((double)pos_counts) + ball_offset; // scaled motor angle 
-
-    // Reference: 0 rad until 3.0 s, then step to STEP_AMP
     unsigned long t_ms = millis() - t0;
-    // Toggle every 3 seconds: -0.7 for first 3s, 0.7 for next 3s, repeat
-    int period_count = (t_ms / 8000) % 2;
-    if (period_count == 0) {
-      theta_ref = -0.7;
-    } else {
-      theta_ref = 0.7;
+
+    // ================= OUTER LOOP (LAB 3) =================
+    // run outer controller every OUTER_DIV inner-loop ticks (~0.4s)
+    bool run_outer = false;
+    outer_counter++;
+    if (outer_counter >= OUTER_DIV) {
+      outer_counter = 0;
+      run_outer = true;
     }
 
-    //(f) Saturator: update theta ref if within range (+/- 0.7 rad)
-    // if (t_ms >= 3000) {
-    //   if (STEP_AMP < (-SAT_LIMIT)) {
-    //     theta_ref = -SAT_LIMIT;
-    //   }
-    //   else if (STEP_AMP > (SAT_LIMIT)) {
-    //     theta_ref = SAT_LIMIT;
-    //   }
-    //   else {
-    //     theta_ref = STEP_AMP;
-    //   }
-    // }
+    if (run_outer) {
+      // ONE-TIME STEP: y_ref = 0.10m for t < 10s, then 0.25m forever
+      if (t_ms < Y_SWITCH_TIME_MS) {
+        y_ref = Y_MIN;
+      } else {
+        y_ref = Y_MAX;
+      }
+
+      // outer-loop error (ball position)
+      double e_2 = y_ref - ball_pos_m;
+
+      double u_2 = num2[0] * e_2;
+
+      for (int i = 0; i < E_HIST_LEN_2; ++i) {
+        u_2 += num2[i + 1] * eHist_2[i];
+      }
+
+      for (int i = 0; i < U_HIST_LEN_2; ++i) {
+        u_2 -= den2[i + 1] * uHist_2[i];
+      }
+
+      u_2 /= den2[0];
+
+      // saturate u_2 to +/- 0.7 rad (u_2 = theta_ref)
+      if (u_2 > SAT_LIMIT) {
+        u_2 = SAT_LIMIT;
+      }
+      else if (u_2 < -SAT_LIMIT) {
+        u_2 = -SAT_LIMIT;
+      }
+
+      theta_ref = u_2;
+
+      // shift outer-loop u2 history
+      for (int i = U_HIST_LEN_2 - 1; i > 0; --i) {
+        uHist_2[i] = uHist_2[i - 1];
+      }
+      if (U_HIST_LEN_2 > 0) {
+        uHist_2[0] = theta_ref;
+      }
+
+      // shift outer-loop e2 history
+      for (int i = E_HIST_LEN_2 - 1; i > 0; --i) {
+        eHist_2[i] = eHist_2[i - 1];
+      }
+      if (E_HIST_LEN_2 > 0) {
+        eHist_2[0] = e_2;
+      }
+    }
+
 
     double e = theta_ref - theta;
 
@@ -150,12 +190,6 @@ void loop() {
       else if (theta_ref < 0.0) u_stiction  -= Vstick_CCW; //+ve theta_ref=CCW
     // }
 
-    // if (abs(e) < 0.02) {
-    //   // u_stiction=uHist[0];
-    //   if (u_stiction > 0.0) u_stiction = Vstick_CW; // switch <, > if needed
-    //   else if (u_stiction < 0.0) u_stiction = -Vstick_CCW;
-    // }
-
     //voltage saturator
     if (u_stiction < (-6.0)) {
       u_stiction = -6.0;
@@ -169,8 +203,7 @@ void loop() {
     // setMotorVoltage(u_stiction*-1.0);
     setMotorVoltage(u_stiction);
     
-    // ====== Update histories AFTER computing u ======
-    // shift u history
+    // shift inner-loop u history
     for (int i = U_HIST_LEN - 1; i > 0; --i) {
       uHist[i] = uHist[i-1];
     }
@@ -178,7 +211,7 @@ void loop() {
       uHist[0] = u;
     }
 
-    // shift e history
+    // shift inner-loop e history
     for (int i = E_HIST_LEN - 1; i > 0; --i) {
       eHist[i] = eHist[i-1];
     }
