@@ -1,6 +1,6 @@
 
 % set sampling time
-T = 0.4;
+T = 0.45;
 
 s = tf('s');
 
@@ -19,6 +19,11 @@ P = -0.2588729/(s*s);
 
 % LAB 3 (0.4s sampling time) TA plant
   % -0.02071 z - 0.02071
+  % --------------------
+  %    z^2 - 2 z + 1
+
+% LAB 3 (0.45s sampling time) TA plant
+  % -0.02621 z - 0.02621
   % --------------------
   %    z^2 - 2 z + 1
 
@@ -52,15 +57,15 @@ end
 stablePlantPoles = [stableRealPlantPoles stableComplexPlantPoles];
 qs = [stablePlantPoles unstablePlantPoles];
 
-%(0.4s sampling time) TA plant
+%(0.45s sampling time) TA plant
 
 % coefficents go in order of the poles
-cs = [-0.02071];
+cs = [-0.02621];
 
 if double_integrator_flag
     % coefficients include both c_n for 1/(z-1) and c_(n+1) for 1/(z-1)^2 for
     %       the pole at z=1
-    c_double_integrator = -0.04142;
+    c_double_integrator = -0.05242;
     cs = [cs c_double_integrator];
 end     
 
@@ -89,7 +94,7 @@ realWPoles = [];
 % % for checking the integrator in the controller:
 % complexWPoles = [0.4+0.1*j 0.4-0.1*j 0.5+0.1*j 0.5-0.1*j 0.6+0.1*j 0.6-0.1*j];
 
-%(0.4s sampling time) generate_poles(12, 0.7, 0.1)
+%generate_poles(12, 0.7, 0.1)
 complexWPoles = [ ...
    -0.162844740719926 - 0.112157518439654*j,  -0.162844740719926 + 0.112157518439654*j, ...
     0.219767988315681 - 0.385990883711193*j,   0.219767988315681 + 0.385990883711193*j, ...
@@ -395,7 +400,34 @@ D = W / X;
 %Show simplified D[z]
 zpk(D)
 
-[num_d, den_d] = tfdata(D,'v');  
+[zD0, pD0, ~] = zpkdata(D, 'v');
+fprintf('\nBefore simplification:\n');
+fprintf('  Zeros: %d\n', numel(zD0));
+fprintf('  Poles : %d\n', numel(pD0));
+
+
+%% Snap nearly identical poles/zeros (e.g. z=1 vs z=0.998)
+[zD_snap, pD_snap, kD_snap] = zpkdata(D, 'v');
+snap_tol = 0.01;  % adjust if needed
+pD_snap(abs(pD_snap - 1) < snap_tol) = 1;
+zD_snap(abs(zD_snap - 1) < snap_tol) = 1;
+D_snap = zpk(zD_snap, pD_snap, kD_snap, D.Ts);
+
+%% Simplify D[z] by canceling pole-zero pairs and display result
+tol = 0.01;                  % numerical tolerance
+D_simplified = minreal(D_snap, tol);  % remove near-canceling poles/zeros
+disp('Final simplified D[z]:');
+zpk(D_simplified)
+
+% --- Count poles and zeros of final D[z] ---
+[zD, pD, kD] = zpkdata(D_simplified, 'v');
+fprintf('\nAfter simplification (tol = %.3g):\n', tol);
+fprintf('\nNumber of zeros in D[z]: %d\n', numel(zD));
+fprintf('Number of poles in D[z]: %d\n', numel(pD));
+
+
+
+[num_ds, den_ds] = tfdata(D_simplified,'v'); 
 
 
 
