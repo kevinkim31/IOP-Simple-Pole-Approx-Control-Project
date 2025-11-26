@@ -1,0 +1,269 @@
+#include <Arduino.h>
+#include <math.h>
+#include "geeWhiz.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int MOT_PIN = A0;   // motor angle sensor
+int BAL_PIN = A1;   // ball position sensor
+
+// ================== Global Variables ======
+volatile int motorADC = 0;     // gear angle reading from A/D
+volatile int pos_counts = 0;       // ball position reading from A/D
+volatile bool new_data_available = false;  // flag to indicate new sensor data
+
+// Angle calibration (lab 1)
+const double m = -0.01427996661; // rad/ADC
+const double offset = 435.0; // zero at ADC=435
+const double SAT_LIMIT = 0.7;
+
+// Ball position calibration (lab 2)
+const double m_ball = 3.0/2950.0; // m/ADC
+const double ball_offset = -71.0/236.0; // zero at ADC=435
+
+// ------- Inner Loop Controller Coefficients (EDIT THESE) -------
+double num[] = {4.28571428571429,    -7.47346203192054,    6.50702868019854,   -2.06203123396217,    -0.102634444532833,    -0.772187468930284,    2.58979133331801,    -1.39345261821552};  // MATALB: num_ds [TAKE OUT FIRST ELEMENT FROM MATLAB (=0)]
+double den[] = {1.00000000000000 ,   -1.74291294381461,    1.50006108548708,    -0.494398873930484,    -0.0351683941949983,    0.126070763073284,    -0.0221429806981165,    -0.00266656583287233,    0.0179586003866532}; // MATLAB: den_ds 
+
+// const int NUM_LEN = sizeof(num) / sizeof(num[0]);
+// const int DEN_LEN = sizeof(den) / sizeof(den[0]);
+const int NUM_LEN = 8;
+const int DEN_LEN = 9;
+const int E_HIST_LEN = (NUM_LEN > 0) ? NUM_LEN - 1 : 0;
+const int U_HIST_LEN = (DEN_LEN > 0) ? DEN_LEN - 1 : 0;
+
+// ===== History buffers =====
+double eHist[E_HIST_LEN] = {0};
+double uHist[U_HIST_LEN] = {0};
+
+
+// Stiction with beam + ball (lab 2)
+const double V_zero = 0.42;  // these values were calculted via physical measurements; no stuttering but cause steady state error with beam + ball
+
+const double Vstick_CW = 0.2;
+const double Vstick_CCW = 0.175;
+
+// DEFINE INPUT STEP 
+// ***************************************************
+// Ball position reference for Lab 3:
+// Toggles between 0.10m and 0.25m every 10 seconds forever
+
+// Lab 3 (part c) ball stiction ///////////////////////////////
+const double Y_MIN_STICTION = -0.12000000000000000000000; // -0.16
+const double Y_MAX_STICTION = -0.03000000000000000000000; // -0.08
+///////////////////////////////////////////////////////////////
+
+
+const double Y_MIN = 0.10000000000000000;
+const double Y_MAX = 0.25000000000000000;
+double y_ref = Y_MIN;
+
+double theta_ref = 0.0;
+// ***************************************************
+
+
+const unsigned long Y_PERIOD_MS = 10000;   // period for square wave: 10 seconds (0.1m for 10s, then 0.25m for 10s, repeat)
+
+
+// ------- Outer Loop Controller Coefficients (EDIT THESE) Lab 3-------
+// Outer-loop period ~0.4 s, inner loop is 9 ms
+const int OUTER_DIV = 50;          // 50 * 9ms =0.45s, TODO
+int outer_counter = 0; // int outer_counter = OUTER_DIV; if you want the outter loop to run once in the very beginning
+
+// double num2[] = {-3.21119313686683,    14.9464924262551,    -30.0399413080842,    35.6910845200937,    -29.9694457219221,    20.6424181346170,    -13.0545167959436,    8.06186307578621,    -4.87609563297897,    2.87216818627142,    -1.76578765440322,    1.05708805648708,    -0.412791340512162}; 
+// double den2[] = {1.00000000000000,   -3.55943270691248,    5.37278021611587,    -4.99961510091464,    3.67247469198671,    -2.42760657178875,    1.53824958504758,    -0.951184291385656,    0.531921375136014,    -0.228711469947088,    0.0639894551563431,    -0.00988997794090891,    0.00147188520783672,    -0.00616826621561544,    0.00172117645478453}; 
+
+// good controller from beginning (gen_poles(12, 0.7, 0.1)), 0.45s
+double num2[] = {-4.45996227571200,    -1.92355995102333,    -0.173784429720078,    -0.137812081944388,    0.619293435094673,    1.25814549626940,    -3.27749683566988,    4.19900862316931,    -4.29482518245334,    3.97927734131421}; 
+double den2[] = {1.00000000000000,    0.440567417878844,    1.10232215910769,    0.693492354070722,    0.790469925237794,    0.533503059606313,    0.506168126814710,    0.406322547704159,    0.294367625670335,    0.201097076728316,    0.104480579020385}; 
+
+// with "integrator" + fisher method, 0.36s, lower control, under 0.4 rad, must start around 0.1m (since positive step in matlab?)
+// double num2[] = { -2.66666658401034,    15.8464156294451,    -36.1555690236343,    27.9933843674532,    35.7302880975526,    -98.4593577195725,    63.1368771652062,    55.9367529510663 ,   -119.352575014102,    50.8914702069142 ,   56.1099824164903,    -78.0363416549790,    19.1882145664492,    30.9106890309335,    -29.1249885183517,    4.21174024494555,    9.10575825224277,    -7.54816033215176,    2.67786128325411,    -0.395775365454427}; 
+// double den2[] = {1.00000000000000,     -5.06735581144427,    9.08671124996179,    -2.29856047514016,    -15.9594521074754,    23.1216831467526 ,   -2.11641951245316,    -24.9651110720740 ,   22.9705978141042,    4.12560919335339,    -20.2891985911329,    10.4645928588742,   5.43793854536074,    -8.36356110724953,    2.04672937770702,    2.09147016306645,    -1.59021341087046,    0.152297806331994,    0.247490084370850,    -0.108762727661970,    0.0135145756071860};
+
+// with "integrator" + fisher method, 0.36s, best specs in simulation, must start around 0.1m
+// double num2[] = { 2.66666666666672,    -20.7129549378788,    60.8355241975397,    -69.2241686093540,    -38.6197576998526,    199.309171261892,    -182.504238005593,    -73.5780723127297,    277.338077699297,    -166.821653234186,    -101.445212985470,    193.502380014707,    -61.2021818882570,    -74.7590883909714,    77.3249252640839,    -11.6729991096324,    -24.2303572322372,    19.2274668529854,    -6.23189566267655,    0.798368111832901}; 
+// double den2[] = {1.00000000000000,     -5.06735518390078,    9.17617474667011,    -2.64343846105476,    -15.7249440081834,    23.9317731753303,    -3.60875573208790,    -25.0120693203141,    25.2434462335254,    2.42508254854099,    -21.4812703210862,    12.7833054485727,    4.97236033712007,    -9.70137857754208,    3.04316728197040,    2.30102800410926,    -2.15445321268230,    0.333482838199971,    0.348426121341401,    -0.198128129482761,    0.0335462109551825};
+
+const int NUM2_LEN = sizeof(num2) / sizeof(num2[0]);
+const int DEN2_LEN = sizeof(den2) / sizeof(den2[0]);
+
+const int E_HIST_LEN_2 = (NUM2_LEN > 0) ? NUM2_LEN - 1 : 0;
+const int U_HIST_LEN_2 = (DEN2_LEN > 0) ? DEN2_LEN - 1 : 0;
+
+double eHist_2[E_HIST_LEN_2] = {0};
+double uHist_2[U_HIST_LEN_2] = {0};
+
+
+unsigned long t0;
+
+void setup() {
+  pinMode(A5, OUTPUT);
+  Serial.begin(115200);
+  delay(300);
+
+  geeWhizBegin();
+  set_control_interval_ms(9);
+
+  t0 = millis();
+  Serial.println("t_s,theta_ref,theta,u");
+}
+
+void loop() {
+  // Only execute control when new sensor data is available
+
+  if (new_data_available) {
+    new_data_available = false;  // reset flag
+    
+    // Read sensors
+    double theta = m * ((double)motorADC - offset); // scaled motor angle reading [radians]
+
+    double ball_pos_m = m_ball*((double)pos_counts) + ball_offset; // scaled y reading [meters]
+
+    unsigned long t_ms = millis() - t0;
+
+    // ================= OUTER LOOP (LAB 3) =================
+    // run outer controller every OUTER_DIV inner-loop ticks (~0.4s)
+    bool run_outer = false;
+    outer_counter++;
+    if (outer_counter >= OUTER_DIV) {
+      outer_counter = 0;
+      run_outer = true;
+    }
+
+    if (run_outer) {
+      // Square wave: toggle between 0.10m and 0.25m every 10 seconds
+      if ((t_ms / Y_PERIOD_MS) % 2 == 0) {
+        y_ref = Y_MIN;
+      } else {
+        y_ref = Y_MAX;
+      }
+
+      // outer-loop error (ball position)
+      double e_2 = y_ref-ball_pos_m;
+
+      if (y_ref == Y_MIN) {
+        e_2 += Y_MIN_STICTION;  // Apply -0.16m offset to error
+      } else if (y_ref == Y_MAX) {
+        e_2 += Y_MAX_STICTION;  // Apply -0.08m offset to error
+      }
+
+      double u_2 = num2[0] * e_2;
+
+      for (int i = 0; i < E_HIST_LEN_2; ++i) {
+        u_2 += num2[i + 1] * eHist_2[i];
+      }
+
+      for (int i = 0; i < U_HIST_LEN_2; ++i) {
+        u_2 -= den2[i + 1] * uHist_2[i];
+      }
+
+      u_2 /= den2[0];
+      
+      // saturate u_2 to +/- 0.7 rad (u_2 = theta_ref)
+      if (u_2 > SAT_LIMIT) {
+        u_2 = SAT_LIMIT;
+      }
+      else if (u_2 < -SAT_LIMIT) {
+        u_2 = -SAT_LIMIT;
+      }
+
+      theta_ref = u_2;
+
+      // shift outer-loop u2 history
+      for (int i = U_HIST_LEN_2 - 1; i > 0; --i) {
+        uHist_2[i] = uHist_2[i - 1];
+      }
+      if (U_HIST_LEN_2 > 0) {
+        uHist_2[0] = theta_ref;
+      }
+
+      // shift outer-loop e2 history
+      for (int i = E_HIST_LEN_2 - 1; i > 0; --i) {
+        eHist_2[i] = eHist_2[i - 1];
+      }
+      if (E_HIST_LEN_2 > 0) {
+        eHist_2[0] = e_2;
+      }
+    }
+
+
+    double e = theta_ref - theta;
+
+    double u = num[0] * e;
+
+    for (int i = 0; i < E_HIST_LEN; ++i) {
+      u += num[i + 1] * eHist[i];
+    }
+
+    for (int i = 0; i < U_HIST_LEN; ++i) {
+      u -= den[i + 1] * uHist[i];
+    }
+
+    u /= den[0];
+
+
+    double u_stiction = u*-1.0;
+
+    // if (abs(e) >= 0.01) {
+      if (theta_ref > 0.0) u_stiction -= Vstick_CW; // switch <, > if needed GOOD
+      else if (theta_ref < 0.0) u_stiction -= Vstick_CCW; //+ve theta_ref=CCW
+    // }
+
+    //voltage saturator
+    if (u_stiction < (-6.0)) {
+      u_stiction = -6.0;
+    }
+    else if (u_stiction > (6.0)) {
+      u_stiction = 6.0;
+    }
+    else {
+      u_stiction = u_stiction;
+    }
+    // setMotorVoltage(u_stiction*-1.0);
+    setMotorVoltage(u_stiction);
+    
+    // shift inner-loop u history
+    for (int i = U_HIST_LEN - 1; i > 0; --i) {
+      uHist[i] = uHist[i-1];
+    }
+    if (U_HIST_LEN > 0) {
+      uHist[0] = u;
+    }
+
+    // shift inner-loop e history
+    for (int i = E_HIST_LEN - 1; i > 0; --i) {
+      eHist[i] = eHist[i-1];
+    }
+    if (E_HIST_LEN > 0) {
+      eHist[0] = e;
+    }
+
+    // Logging
+    static uint8_t decim = 0;
+    if (++decim >= 10) {   // print every 10th sample, with set_control_interval_ms(2) in setup, sampling time is 20ms
+      decim = 0;
+      Serial.print(t_ms / 1000.0, 4);  Serial.print(",");
+      Serial.print(theta_ref, 6);       Serial.print(",");
+      Serial.print(theta, 6);           Serial.print(",");
+      Serial.print(u_2, 4); Serial.print(",");
+      Serial.println(ball_pos_m,6);
+      Serial.println(pos_counts);          //adc
+    }
+  }
+}
+
+void interval_control_code(void) {
+  // Read sensors
+  int motor = analogRead(MOT_PIN);
+  int ball  = analogRead(BAL_PIN); // not used for lab 1
+
+  motorADC = motor;
+  pos_counts = ball; // not used for lab 1
+  new_data_available = true;  // signal that new data is ready
+
+  // square wave on A5 to check ISR rate on scope
+  digitalWrite(A5, !digitalRead(A5));
+}
